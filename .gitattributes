@@ -1,0 +1,14 @@
+# Normalize line endings; mark binaries so diffs and checkouts stay sane.
+* text=auto
+
+*.png binary
+*.jpg binary
+*.webp binary
+*.jar binary
+*.apk binary
+*.aab binary
+*.keystore binary
+
+gradlew text eol=lf
+*.sh text eol=lf
+gradlew.bat text eol=crlf

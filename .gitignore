@@ -1,0 +1,25 @@
+# --- Build & IDE ---
+*.iml
+.gradle/
+.kotlin/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+
+# --- Binaries (distribute via GitHub Releases, not the repo) ---
+*.apk
+*.aab
+
+# --- Signing secrets: NEVER commit these (see keystore.properties.example) ---
+*.keystore
+!debug.keystore
+keystore.properties
+keystore/
+
+# --- Generated artifact page (source of truth is docs/PRD-v2.md) ---
+/PRD-v2.html
