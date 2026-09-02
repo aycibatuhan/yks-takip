@@ -20,6 +20,11 @@ dependencies {
     implementation(project.dependencies.platform(libs.koin.bom))
     implementation(libs.koin.core)
     implementation(libs.koin.compose)
+    implementation(libs.koin.compose.viewmodel)
+    implementation(libs.jb.lifecycle.viewmodel.compose)
+    implementation(libs.jb.lifecycle.runtime.compose)
+    implementation(libs.jb.material.icons.extended)
+    implementation(libs.jb.material3)
     implementation(libs.filekit.core)
     implementation(libs.filekit.dialogs.compose)
 }

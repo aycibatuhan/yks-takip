@@ -19,7 +19,8 @@ import com.yks2027.tracker.core.datastore.ThemeMode
 import com.yks2027.tracker.core.model.PlannerCategory
 import com.yks2027.tracker.core.time.IstanbulClock
 import com.yks2027.tracker.core.time.dateOf
-import androidx.room.withTransaction
+import androidx.room.immediateTransaction
+import androidx.room.useWriterConnection
 import com.yks2027.tracker.core.platform.PlatformFiles
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.SerialName
@@ -362,7 +363,9 @@ class BackupManager(
 
         runCatching { files.writePrivateFile("pre_import_snapshot.json", exportJson()) }
 
-        db.withTransaction {
+        // Room KMP: one immediate write transaction; DAO calls inside join it via the coroutine context.
+        db.useWriterConnection { transactor ->
+            transactor.immediateTransaction {
             chatDao.clearAll()
             focusDao.clearAll()
             examDao.clearAll()
@@ -488,6 +491,7 @@ class BackupManager(
                         ),
                     )
                 }
+            }
             }
         }
 

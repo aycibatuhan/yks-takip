@@ -60,9 +60,10 @@ class BootReceiver : BroadcastReceiver(), KoinComponent {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val state = timerStateRepository.snapshot()
-                if (state.phase == TimerPhase.RUNNING && state.endAt != null) {
-                    if (state.endAt > System.currentTimeMillis()) {
-                        alarmScheduler.schedule(state.endAt)
+                val endAt = state.endAt
+                if (state.phase == TimerPhase.RUNNING && endAt != null) {
+                    if (endAt > System.currentTimeMillis()) {
+                        alarmScheduler.schedule(endAt)
                     } else if (timerController.finalizeCompleted()) {
                         postCompletionNotification(
                             context,
