@@ -350,6 +350,12 @@ private val threadDate = DateTimeFormatter.ofPattern("d MMM HH:mm", Locale.forLa
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiKocScreen(viewModel: AiKocViewModel = koinViewModel()) {
+    // v2.0 desktop: Cmd/Ctrl+N starts a new chat (KeyboardShortcuts is silent on Android).
+    LaunchedEffect(Unit) {
+        com.yks2027.tracker.core.ui.KeyboardShortcuts.events.collect {
+            if (it == com.yks2027.tracker.core.ui.KeyboardShortcuts.Shortcut.NewChat) viewModel.newChat()
+        }
+    }
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val header by viewModel.header.collectAsStateWithLifecycle()
     val profiles by viewModel.profiles.collectAsStateWithLifecycle()
