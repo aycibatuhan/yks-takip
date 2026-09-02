@@ -20,4 +20,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "YksTracker"
-include(":app")
+// v2.0 — Kotlin Multiplatform: shared code + thin Android and desktop apps.
+include(":shared")
+include(":androidApp")
+include(":desktopApp")

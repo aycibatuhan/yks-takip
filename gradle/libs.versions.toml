@@ -25,8 +25,42 @@ okhttp = "4.12.0"
 glance = "1.2.0"
 # v1.2 Notlar preview — maintained Compose markdown renderer (verified on Maven Central 2026-08-30).
 markdownRenderer = "0.45.0"
+# v2.0 multiplatform — every pin below verified against Maven Central / Google Maven metadata on 2026-09-01.
+composeMultiplatform = "1.12.0"      # built on Jetpack Compose 1.12.0 == our BOM 2026.08.00
+jbMaterial3 = "1.9.0"                # JetBrains material3 line is decoupled from CMP; last stable
+jbAdaptive = "1.2.0"                 # org.jetbrains.compose.material3.adaptive, last stable
+jbIcons = "1.7.3"                    # frozen multiplatform icons artifact
+jbLifecycle = "2.11.0"               # == androidx lifecycle 2.11.0 already resolved on Android
+jbNavigation = "2.9.2"               # last stable multiplatform navigation-compose
+koin = "4.2.2"
+filekit = "0.15.0"
+sqlite = "2.6.2"                     # matches Room 2.8.4's androidx.sqlite dependency
+okio = "3.18.1"
+coroutines = "1.11.0"
 
 [libraries]
+# --- v2.0 multiplatform ---
+jb-material3 = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "jbMaterial3" }
+jb-material3-adaptive-navigation-suite = { group = "org.jetbrains.compose.material3", name = "material3-adaptive-navigation-suite", version.ref = "jbMaterial3" }
+jb-material3-adaptive = { group = "org.jetbrains.compose.material3.adaptive", name = "adaptive", version.ref = "jbAdaptive" }
+jb-material-icons-extended = { group = "org.jetbrains.compose.material", name = "material-icons-extended", version.ref = "jbIcons" }
+jb-lifecycle-viewmodel-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "jbLifecycle" }
+jb-lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "jbLifecycle" }
+jb-navigation-compose = { group = "org.jetbrains.androidx.navigation", name = "navigation-compose", version.ref = "jbNavigation" }
+koin-bom = { group = "io.insert-koin", name = "koin-bom", version.ref = "koin" }
+koin-core = { group = "io.insert-koin", name = "koin-core" }
+koin-compose = { group = "io.insert-koin", name = "koin-compose" }
+koin-compose-viewmodel = { group = "io.insert-koin", name = "koin-compose-viewmodel" }
+koin-android = { group = "io.insert-koin", name = "koin-android" }
+filekit-core = { group = "io.github.vinceglb", name = "filekit-core", version.ref = "filekit" }
+filekit-dialogs-compose = { group = "io.github.vinceglb", name = "filekit-dialogs-compose", version.ref = "filekit" }
+sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
+datastore-preferences-core = { group = "androidx.datastore", name = "datastore-preferences-core", version.ref = "datastore" }
+okio = { group = "com.squareup.okio", name = "okio", version.ref = "okio" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
+kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test" }
+
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 compose-ui = { group = "androidx.compose.ui", name = "ui" }
@@ -59,6 +93,12 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 
 [plugins]
+# --- v2.0 multiplatform ---
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+room = { id = "androidx.room", version.ref = "room" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
