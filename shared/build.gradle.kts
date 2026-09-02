@@ -27,6 +27,19 @@ kotlin {
     }
 
     sourceSets {
+        // jvmMain: code shared by Android + desktop that may use JDK APIs (java.time, Locale,
+        // the Anthropic Java SDK). commonMain holds platform-neutral contracts only. The web
+        // phase moves jvmMain pieces down to commonMain (kotlinx-datetime, Ktor) — nothing
+        // here blocks that: persistence and networking sit behind interfaces.
+        val jvmMain by creating { dependsOn(commonMain.get()) }
+        val jvmTest by creating {
+            dependsOn(commonTest.get())
+            dependsOn(jvmMain)
+        }
+        androidMain.get().dependsOn(jvmMain)
+        val desktopMain by getting { dependsOn(jvmMain) }
+        val desktopTest by getting { dependsOn(jvmTest) }
+
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -51,12 +64,16 @@ kotlin {
             implementation(libs.markdown.renderer.m3)
             implementation(libs.filekit.core)
             implementation(libs.filekit.dialogs.compose)
+        }
+        jvmMain.dependencies {
             // JVM-only for this phase (Android + desktop are both JVM); see ARCHITECTURE §Platform boundary.
             implementation(libs.anthropic.java)
             implementation(libs.okhttp)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        jvmTest.dependencies {
             implementation(libs.junit)
             implementation(libs.kotlinx.coroutines.test)
         }
@@ -67,11 +84,9 @@ kotlin {
             implementation(libs.vico.compose.m3)
             implementation(libs.koin.android)
         }
-        val desktopMain by getting {
-            dependencies {
-                implementation(compose.desktop.common)
-                implementation(libs.kotlinx.coroutines.swing)
-            }
+        desktopMain.dependencies {
+            implementation(compose.desktop.common)
+            implementation(libs.kotlinx.coroutines.swing)
         }
     }
 }
