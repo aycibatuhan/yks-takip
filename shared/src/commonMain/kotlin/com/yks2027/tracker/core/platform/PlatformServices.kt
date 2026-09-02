@@ -70,10 +70,10 @@ interface PlatformFiles {
     suspend fun writePrivateFile(name: String, text: String)
 }
 
-/** Android: system share sheet. Desktop: "Dosyayı kaydet" + "Panoya kopyala". Returns a snackbar hint or null. */
+/** Android: system share sheet. Desktop: clipboard copy + "Dosyayı kaydet" dialog, confirmed by a notification. */
 interface ShareService {
-    suspend fun shareText(text: String, title: String): String?
-    suspend fun shareFile(fileName: String, mimeType: String, bytes: ByteArray, title: String): String?
+    suspend fun shareText(text: String, title: String)
+    suspend fun shareFile(fileName: String, mimeType: String, bytes: ByteArray, title: String)
 }
 
 /** Longest side ≤ [maxPx], JPEG [quality]. Android: BitmapFactory; desktop: javax.imageio. */

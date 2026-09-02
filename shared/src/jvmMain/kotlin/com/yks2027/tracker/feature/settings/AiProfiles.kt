@@ -45,7 +45,6 @@ import com.yks2027.tracker.core.ai.AiException
 import com.yks2027.tracker.core.ai.AiModelInfo
 import com.yks2027.tracker.core.ai.AiProfilesRepository
 import com.yks2027.tracker.core.ai.AiProtocol
-import com.yks2027.tracker.core.ai.SecretStore
 import com.yks2027.tracker.core.ai.AiTemplate
 import com.yks2027.tracker.core.database.AiProfileEntity
 import com.yks2027.tracker.core.datastore.SettingsRepository

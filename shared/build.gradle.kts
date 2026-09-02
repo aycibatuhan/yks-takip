@@ -62,8 +62,6 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.markdown.renderer.m3)
-            implementation(libs.filekit.core)
-            implementation(libs.filekit.dialogs.compose)
         }
         jvmMain.dependencies {
             // JVM-only for this phase (Android + desktop are both JVM); see ARCHITECTURE §Platform boundary.
@@ -87,6 +85,9 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.common)
             implementation(libs.kotlinx.coroutines.swing)
+            // Native file dialogs (spec: FileKit — verified maintained, 0.15.0 on Maven Central).
+            implementation(libs.filekit.core)
+            implementation(libs.filekit.dialogs.compose)
         }
     }
 }
