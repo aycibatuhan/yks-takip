@@ -37,6 +37,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -338,6 +343,16 @@ fun ExamEntryScreen(
     }
 
     Scaffold(
+        // v2.0 desktop keyboard flow (spec §7): Enter submits from anywhere in the form —
+        // save() re-validates and applies the duplicate warning exactly like the button.
+        modifier = Modifier.onPreviewKeyEvent { e ->
+            if (e.type == KeyEventType.KeyDown && (e.key == Key.Enter || e.key == Key.NumPadEnter)) {
+                viewModel.save()
+                true
+            } else {
+                false
+            }
+        },
         topBar = {
             TopAppBar(
                 title = { Text(if (state.examId != null) "Denemeyi Düzenle" else "Deneme Ekle") },
