@@ -1,12 +1,12 @@
 package com.yks2027.tracker.feature.timer
 
-import com.yks2027.tracker.core.database.FocusDao
 import com.yks2027.tracker.core.database.FocusSessionEntity
 import com.yks2027.tracker.core.datastore.TimerLogic
 import com.yks2027.tracker.core.datastore.TimerMode
 import com.yks2027.tracker.core.datastore.TimerPhase
 import com.yks2027.tracker.core.datastore.TimerStateRepository
 import com.yks2027.tracker.core.model.PlannerCategory
+import com.yks2027.tracker.core.platform.TimerCompletionScheduler
 import com.yks2027.tracker.core.time.IstanbulClock
 
 /**
@@ -14,10 +14,15 @@ import com.yks2027.tracker.core.time.IstanbulClock
  * keeps the foreground service and the exact alarm in sync, and writes the
  * focus_sessions row when a session ends (≥60s active; sub-minute noise is discarded).
  */
-class TimerController constructor(
+/** Sink for finished sessions — FocusDao in the app, a fake in the contract test. */
+fun interface FocusSessionSink {
+    suspend fun insert(session: FocusSessionEntity)
+}
+
+class TimerController(
     private val timerStateRepository: TimerStateRepository,
-    private val focusDao: FocusDao,
-    private val alarmScheduler: AlarmScheduler,
+    private val focusSessions: FocusSessionSink,
+    private val scheduler: TimerCompletionScheduler,
     private val clock: IstanbulClock,
 ) {
 
@@ -30,8 +35,8 @@ class TimerController constructor(
             isBreak = isBreak,
         )
         timerStateRepository.write(state)
-        alarmScheduler.schedule(state.endAt!!)
-        TimerService.startCountdown(context, state.endAt)
+        scheduler.scheduleCompletion(state.endAt!!)
+        scheduler.showCountdown(state.endAt)
     }
 
     /** v1.2 — Kronometre: count-up, no end alarm; only the FGS notification runs. */
@@ -39,15 +44,15 @@ class TimerController constructor(
         val now = clock.now().toEpochMilli()
         val state = TimerLogic.startStopwatch(now, category, taskId = null)
         timerStateRepository.write(state)
-        TimerService.startStopwatch(context, elapsedMs = 0)
+        scheduler.showStopwatch(elapsedMs = 0)
     }
 
     suspend fun pause() {
         val s = timerStateRepository.snapshot()
         if (s.phase != TimerPhase.RUNNING) return
         timerStateRepository.write(TimerLogic.pause(s, clock.now().toEpochMilli()))
-        if (s.mode == TimerMode.COUNTDOWN) alarmScheduler.cancel()
-        TimerService.stop(context)
+        if (s.mode == TimerMode.COUNTDOWN) scheduler.cancelCompletion()
+        scheduler.hideRunning()
     }
 
     suspend fun resume() {
@@ -57,10 +62,10 @@ class TimerController constructor(
         val resumed = TimerLogic.resume(s, now)
         timerStateRepository.write(resumed)
         if (resumed.mode == TimerMode.COUNTDOWN) {
-            alarmScheduler.schedule(resumed.endAt!!)
-            TimerService.startCountdown(context, resumed.endAt)
+            scheduler.scheduleCompletion(resumed.endAt!!)
+            scheduler.showCountdown(resumed.endAt)
         } else {
-            TimerService.startStopwatch(context, elapsedMs = resumed.accumulatedActiveMs)
+            scheduler.showStopwatch(elapsedMs = resumed.accumulatedActiveMs)
         }
     }
 
@@ -80,7 +85,7 @@ class TimerController constructor(
         val now = clock.now().toEpochMilli()
         val activeMs = TimerLogic.activeMsIfEndedAt(s, now)
         if (!s.isBreak && activeMs >= MIN_SESSION_MS && s.startedAt != null) {
-            focusDao.insert(
+            focusSessions.insert(
                 FocusSessionEntity(
                     startedAt = s.startedAt,
                     endedAt = now,
@@ -95,8 +100,8 @@ class TimerController constructor(
             )
         }
         timerStateRepository.clear()
-        alarmScheduler.cancel()
-        TimerService.stop(context)
+        scheduler.cancelCompletion()
+        scheduler.hideRunning()
     }
 
     /**
@@ -111,7 +116,7 @@ class TimerController constructor(
         timerStateRepository.clear()
         val activeMs = TimerLogic.activeMsIfEndedAt(s, endAt)
         if (!s.isBreak && activeMs >= MIN_SESSION_MS && s.startedAt != null) {
-            focusDao.insert(
+            focusSessions.insert(
                 FocusSessionEntity(
                     startedAt = s.startedAt,
                     endedAt = endAt,
@@ -124,8 +129,8 @@ class TimerController constructor(
                 ),
             )
         }
-        alarmScheduler.cancel()
-        TimerService.stop(context)
+        scheduler.cancelCompletion()
+        scheduler.hideRunning()
         return true
     }
 

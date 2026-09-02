@@ -1,9 +1,12 @@
 package com.yks2027.tracker.core.database
 
+import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.RoomDatabaseConstructor
 import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 
 /**
  * Schema v2. v1 shipped with M1/M2; MIGRATION_1_2 adds the exam_topic_notes table
@@ -29,6 +32,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     version = 5,
     exportSchema = true,
 )
+@ConstructedBy(YksDatabaseConstructor::class)
 abstract class YksDatabase : RoomDatabase() {
     abstract fun examDao(): ExamDao
     abstract fun planDao(): PlanDao
@@ -40,8 +44,8 @@ abstract class YksDatabase : RoomDatabase() {
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `exam_topic_notes` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -54,18 +58,18 @@ abstract class YksDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
-                db.execSQL(
+                connection.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_exam_topic_notes_exam_id` ON `exam_topic_notes` (`exam_id`)",
                 )
-                db.execSQL(
+                connection.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_exam_topic_notes_subject` ON `exam_topic_notes` (`subject`)",
                 )
             }
         }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `exam_topic_marks` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -81,10 +85,10 @@ abstract class YksDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exam_topic_marks_exam_id` ON `exam_topic_marks` (`exam_id`)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exam_topic_marks_topic_id` ON `exam_topic_marks` (`topic_id`)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_exam_topic_marks_subject` ON `exam_topic_marks` (`subject`)")
-                db.execSQL(
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_exam_topic_marks_exam_id` ON `exam_topic_marks` (`exam_id`)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_exam_topic_marks_topic_id` ON `exam_topic_marks` (`topic_id`)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_exam_topic_marks_subject` ON `exam_topic_marks` (`subject`)")
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `topic_status` (
                         `topic_id` TEXT NOT NULL,
@@ -101,8 +105,8 @@ abstract class YksDatabase : RoomDatabase() {
 
         /** v1.2: ai_profiles + notes — purely additive, SQL matches schemas/4.json. */
         val MIGRATION_3_4 = object : Migration(3, 4) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `ai_profiles` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -114,7 +118,7 @@ abstract class YksDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
-                db.execSQL(
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `notes` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -136,8 +140,8 @@ abstract class YksDatabase : RoomDatabase() {
          * still purely additive — every existing row/column value is preserved.
          */
         val MIGRATION_4_5 = object : Migration(4, 5) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `chat_folders` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -146,7 +150,7 @@ abstract class YksDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
-                db.execSQL(
+                connection.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `chat_threads_new` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -159,14 +163,20 @@ abstract class YksDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
-                db.execSQL(
+                connection.execSQL(
                     "INSERT INTO `chat_threads_new` (`id`, `title`, `created_at`, `pinned`, `folder_id`) " +
                         "SELECT `id`, `title`, `created_at`, 0, NULL FROM `chat_threads`",
                 )
-                db.execSQL("DROP TABLE `chat_threads`")
-                db.execSQL("ALTER TABLE `chat_threads_new` RENAME TO `chat_threads`")
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_chat_threads_folder_id` ON `chat_threads` (`folder_id`)")
+                connection.execSQL("DROP TABLE `chat_threads`")
+                connection.execSQL("ALTER TABLE `chat_threads_new` RENAME TO `chat_threads`")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_chat_threads_folder_id` ON `chat_threads` (`folder_id`)")
             }
         }
     }
+}
+
+/** v2.0 Room KMP — the platform-specific database constructor is generated by Room per target. */
+@Suppress("KotlinNoActualForExpect")
+expect object YksDatabaseConstructor : RoomDatabaseConstructor<YksDatabase> {
+    override fun initialize(): YksDatabase
 }

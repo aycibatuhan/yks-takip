@@ -1,5 +1,6 @@
 package com.yks2027.tracker.core.ai
 
+import com.yks2027.tracker.core.platform.SecretStore
 import com.yks2027.tracker.core.database.AiProfileDao
 import com.yks2027.tracker.core.database.AiProfileEntity
 import com.yks2027.tracker.core.datastore.LegacyAiSlot
@@ -46,7 +47,7 @@ object LegacyAiMigration {
 class AiProfilesRepository constructor(
     private val dao: AiProfileDao,
     private val settingsRepository: SettingsRepository,
-    private val secrets: AiSecretsRepository,
+    private val secrets: SecretStore,
     private val clock: IstanbulClock,
 ) {
 

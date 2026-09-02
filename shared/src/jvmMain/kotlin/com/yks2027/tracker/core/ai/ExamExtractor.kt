@@ -1,5 +1,6 @@
 package com.yks2027.tracker.core.ai
 
+import com.yks2027.tracker.core.platform.SecretStore
 import com.anthropic.models.messages.Base64ImageSource
 import com.anthropic.models.messages.Base64PdfSource
 import com.anthropic.models.messages.ContentBlockParam
@@ -151,7 +152,7 @@ sealed interface ExtractSource {
 class ExamExtractor constructor(
     private val anthropicProvider: AnthropicProvider,
     private val profilesRepository: AiProfilesRepository,
-    private val secrets: AiSecretsRepository,
+    private val secrets: SecretStore,
 ) {
 
     /** Anthropic-protocol profiles only for now (document/image blocks via the SDK). */

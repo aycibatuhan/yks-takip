@@ -1,5 +1,6 @@
 package com.yks2027.tracker.core.datastore
 
+import com.yks2027.tracker.core.platform.SecretStore
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -7,7 +8,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.yks2027.tracker.core.time.ISTANBUL
 import java.time.Instant
 import java.time.LocalDateTime
@@ -25,7 +25,7 @@ data class Settings(
     val backupDirUri: String?,
     val lastBackupAt: Long?,
     // Module E — AI Koç. v1.2: config lives in ai_profiles (Room); settings only
-    // remember WHICH profile is active. Keys are in AiSecretsRepository, per profile.
+    // remember WHICH profile is active. Keys are in SecretStore, per profile.
     val activeAiProfileId: Long?,
     val aiShareStats: Boolean,
     // Timer auto-break suggestion length in minutes; 0 = off (PRD §12 M3).
@@ -43,11 +43,8 @@ data class LegacyAiSlot(
     val model: String?,
 )
 
-/** PRD §9.3 — `settings` preferences file (separate from `timer_state`). */
-private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
-class SettingsRepository constructor(
-) {
+/** PRD §9.3 — the `settings` preferences file (separate from `timer_state`), opened by the platform. */
+class SettingsRepository(private val settingsStore: DataStore<Preferences>) {
 
     private object Keys {
         val TYT_EXAM_AT = longPreferencesKey("tyt_exam_at")
@@ -67,7 +64,7 @@ class SettingsRepository constructor(
         val LEGACY_AI_MODEL = stringPreferencesKey("ai_model")
     }
 
-    val settings: Flow<Settings> = context.settingsStore.data.map { p ->
+    val settings: Flow<Settings> = settingsStore.data.map { p ->
         Settings(
             tytExamAt = p[Keys.TYT_EXAM_AT] ?: DEFAULT_TYT_EXAM_AT,
             aytExamAt = p[Keys.AYT_EXAM_AT] ?: DEFAULT_AYT_EXAM_AT,
@@ -82,31 +79,31 @@ class SettingsRepository constructor(
         )
     }
 
-    suspend fun setTytExamAt(epochMs: Long) = context.settingsStore.edit { it[Keys.TYT_EXAM_AT] = epochMs }
-    suspend fun setAytExamAt(epochMs: Long) = context.settingsStore.edit { it[Keys.AYT_EXAM_AT] = epochMs }
-    suspend fun setDatesConfirmed(v: Boolean) = context.settingsStore.edit { it[Keys.DATES_CONFIRMED] = v }
-    suspend fun setThemeMode(v: ThemeMode) = context.settingsStore.edit { it[Keys.THEME_MODE] = v.name }
-    suspend fun setLastBackupAt(epochMs: Long) = context.settingsStore.edit { it[Keys.LAST_BACKUP_AT] = epochMs }
+    suspend fun setTytExamAt(epochMs: Long) = settingsStore.edit { it[Keys.TYT_EXAM_AT] = epochMs }
+    suspend fun setAytExamAt(epochMs: Long) = settingsStore.edit { it[Keys.AYT_EXAM_AT] = epochMs }
+    suspend fun setDatesConfirmed(v: Boolean) = settingsStore.edit { it[Keys.DATES_CONFIRMED] = v }
+    suspend fun setThemeMode(v: ThemeMode) = settingsStore.edit { it[Keys.THEME_MODE] = v.name }
+    suspend fun setLastBackupAt(epochMs: Long) = settingsStore.edit { it[Keys.LAST_BACKUP_AT] = epochMs }
 
-    suspend fun setBackupDirUri(uri: String?) = context.settingsStore.edit { prefs ->
+    suspend fun setBackupDirUri(uri: String?) = settingsStore.edit { prefs ->
         if (uri == null) prefs.remove(Keys.BACKUP_DIR_URI) else prefs[Keys.BACKUP_DIR_URI] = uri
     }
 
-    suspend fun setAiShareStats(v: Boolean) = context.settingsStore.edit { it[Keys.AI_SHARE_STATS] = v }
-    suspend fun setAutoBreakMin(v: Int) = context.settingsStore.edit { it[Keys.AUTO_BREAK_MIN] = v.coerceIn(0, 60) }
+    suspend fun setAiShareStats(v: Boolean) = settingsStore.edit { it[Keys.AI_SHARE_STATS] = v }
+    suspend fun setAutoBreakMin(v: Int) = settingsStore.edit { it[Keys.AUTO_BREAK_MIN] = v.coerceIn(0, 60) }
 
-    suspend fun setActiveAiProfileId(id: Long?) = context.settingsStore.edit { prefs ->
+    suspend fun setActiveAiProfileId(id: Long?) = settingsStore.edit { prefs ->
         if (id == null) prefs.remove(Keys.ACTIVE_AI_PROFILE_ID) else prefs[Keys.ACTIVE_AI_PROFILE_ID] = id
     }
 
     // --- v1.2 single-slot → profile migration support ---
 
     suspend fun aiProfilesMigrated(): Boolean =
-        context.settingsStore.data.first()[Keys.AI_PROFILES_MIGRATED] ?: false
+        settingsStore.data.first()[Keys.AI_PROFILES_MIGRATED] ?: false
 
     /** Legacy prefs as stored; providerName == null means the user never picked a provider. */
     suspend fun legacyAiSlotOnce(): LegacyAiSlot {
-        val p = context.settingsStore.data.first()
+        val p = settingsStore.data.first()
         return LegacyAiSlot(
             providerName = p[Keys.LEGACY_AI_PROVIDER],
             baseUrl = p[Keys.LEGACY_AI_BASE_URL],
@@ -114,7 +111,7 @@ class SettingsRepository constructor(
         )
     }
 
-    suspend fun markAiProfilesMigrated() = context.settingsStore.edit { prefs ->
+    suspend fun markAiProfilesMigrated() = settingsStore.edit { prefs ->
         prefs[Keys.AI_PROFILES_MIGRATED] = true
         prefs.remove(Keys.LEGACY_AI_PROVIDER)
         prefs.remove(Keys.LEGACY_AI_BASE_URL)

@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.yks2027.tracker.core.model.PlannerCategory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -116,11 +115,8 @@ object TimerLogic {
     }
 }
 
-/** PRD §9.3 — separate preferences file so timer writes don't wake settings collectors. */
-private val Context.timerStore: DataStore<Preferences> by preferencesDataStore(name = "timer_state")
-
-class TimerStateRepository constructor(
-) {
+/** PRD §9.3 — separate `timer_state` file so timer writes don't wake settings collectors. */
+class TimerStateRepository(private val timerStore: DataStore<Preferences>) {
 
     private object Keys {
         val PHASE = stringPreferencesKey("state")
@@ -136,7 +132,7 @@ class TimerStateRepository constructor(
         val IS_BREAK = androidx.datastore.preferences.core.booleanPreferencesKey("is_break")
     }
 
-    val state: Flow<TimerState> = context.timerStore.data.map { p ->
+    val state: Flow<TimerState> = timerStore.data.map { p ->
         TimerState(
             phase = p[Keys.PHASE]?.let { runCatching { TimerPhase.valueOf(it) }.getOrNull() }
                 ?: TimerPhase.IDLE,
@@ -157,7 +153,7 @@ class TimerStateRepository constructor(
     suspend fun snapshot(): TimerState = state.first()
 
     suspend fun write(s: TimerState) {
-        context.timerStore.edit { p ->
+        timerStore.edit { p ->
             p[Keys.PHASE] = s.phase.name
             p[Keys.MODE] = s.mode.name
             s.endAt?.let { p[Keys.END_AT] = it } ?: p.remove(Keys.END_AT)
@@ -173,6 +169,6 @@ class TimerStateRepository constructor(
     }
 
     suspend fun clear() {
-        context.timerStore.edit { it.clear() }
+        timerStore.edit { it.clear() }
     }
 }

@@ -1,5 +1,7 @@
 package com.yks2027.tracker.feature.timer
 
+import com.yks2027.tracker.core.platform.TimerCompletionScheduler
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -183,24 +185,10 @@ fun TimerScreen(viewModel: TimerViewModel = koinViewModel()) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val plannedInput by viewModel.plannedMinInput.collectAsStateWithLifecycle()
     val category by viewModel.selectedCategory.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-
-    // PRD §7.2: request POST_NOTIFICATIONS contextually on first start; a denial still
-    // starts the timer (in-app alert covers completion, with degraded background alerts).
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { viewModel.start() }
-
-    fun onStartClick() {
-        val needsPermission = Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        if (needsPermission) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            viewModel.start()
-        }
-    }
+    // PRD §7.2: request POST_NOTIFICATIONS contextually on first start (Android 13+); a
+    // denial still starts the timer. Desktop: no permission concept — starts immediately.
+    val scheduler: TimerCompletionScheduler = koinInject()
+    fun onStartClick() = scheduler.ensureNotificationPermission { viewModel.start() }
 
     val isStopwatch = ui.mode == com.yks2027.tracker.core.datastore.TimerMode.STOPWATCH
     val displayMs = when {

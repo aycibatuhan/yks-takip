@@ -1,5 +1,6 @@
 package com.yks2027.tracker.core.ai
 
+import com.yks2027.tracker.core.platform.SecretStore
 import com.yks2027.tracker.core.database.AiProfileEntity
 import com.yks2027.tracker.core.datastore.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -16,7 +17,7 @@ import kotlinx.coroutines.flow.map
 class AiClient constructor(
     private val anthropicProvider: AnthropicProvider,
     private val openAiCompatProvider: OpenAiCompatProvider,
-    private val secrets: AiSecretsRepository,
+    private val secrets: SecretStore,
     private val profilesRepository: AiProfilesRepository,
     private val settingsRepository: SettingsRepository,
     private val statsContextBuilder: StatsContextBuilder,
