@@ -17,7 +17,7 @@ class DesktopPathsTest {
     @Test
     fun windowsUsesAppDataWithFallback() {
         assertEquals(
-            File("C:\\Users\\ali\\AppData\\Roaming\\YKS Takip"),
+            File("C:\\Users\\ali\\AppData\\Roaming", "YKS Takip"),
             DesktopPaths.resolveDataDir("Windows 11", "C:\\Users\\ali", appData = "C:\\Users\\ali\\AppData\\Roaming", xdgDataHome = null),
         )
         assertEquals(

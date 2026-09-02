@@ -1,0 +1,97 @@
+# v2.0 — release packaging (spec §8). jpackage only targets the host OS, so the matrix builds
+# the .dmg on macOS and the .msi on Windows; the Android APK is built on ubuntu and is signed
+# ONLY when the keystore secrets are present (otherwise it ships unsigned — fresh-clone safe).
+#
+# Trigger: push a tag like v2.0.0. Secrets (optional, Settings → Secrets → Actions):
+#   ANDROID_KEYSTORE_BASE64  — base64 of keystore/release.keystore
+#   ANDROID_STORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    name: Shared unit tests (75 + platform contracts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :shared:desktopTest --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: test-results, path: shared/build/test-results/desktopTest }
+
+  android:
+    name: Android APK
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Restore signing config (only when secrets exist)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p keystore
+          echo "$KS_B64" | base64 -d > keystore/release.keystore
+          printf 'storeFile=keystore/release.keystore\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+      - run: ./gradlew :androidApp:assembleRelease --no-daemon
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          f=$(ls androidApp/build/outputs/apk/release/*.apk | head -1)
+          case "$f" in *unsigned*) cp "$f" dist/yks-takip-${GITHUB_REF_NAME}-unsigned.apk ;; *) cp "$f" dist/yks-takip-${GITHUB_REF_NAME}.apk ;; esac
+      - uses: actions/upload-artifact@v4
+        with: { name: android, path: dist/* }
+
+  desktop:
+    name: Desktop ${{ matrix.os }}
+    needs: tests
+    strategy:
+      matrix:
+        include:
+          - { os: macos-latest, task: packageDmg, glob: "desktopApp/build/compose/binaries/main/dmg/*.dmg" }
+          - { os: windows-latest, task: packageMsi, glob: "desktopApp/build/compose/binaries/main/msi/*.msi" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :desktopApp:${{ matrix.task }} --no-daemon
+      - uses: actions/upload-artifact@v4
+        with: { name: desktop-${{ matrix.os }}, path: ${{ matrix.glob }} }
+
+  release:
+    name: GitHub Release
+    needs: [android, desktop]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - name: Attach installers
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/android/*
+            artifacts/desktop-macos-latest/*
+            artifacts/desktop-windows-latest/*
+          body: |
+            YKS Takip ${{ github.ref_name }} — Android APK (imzalı/signed only if secrets were configured), macOS .dmg, Windows .msi.
+            Masaüstü paketleri imzasızdır: macOS Gatekeeper / Windows SmartScreen uyarısı için README'ye bakın.
+            Desktop packages are unsigned: see README for the Gatekeeper / SmartScreen note.
