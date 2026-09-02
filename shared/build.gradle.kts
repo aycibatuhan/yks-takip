@@ -32,10 +32,10 @@ kotlin {
         // phase moves jvmMain pieces down to commonMain (kotlinx-datetime, Ktor) — nothing
         // here blocks that: persistence and networking sit behind interfaces.
         val jvmMain by creating { dependsOn(commonMain.get()) }
-        val jvmTest by creating {
-            dependsOn(commonTest.get())
-            dependsOn(jvmMain)
-        }
+        // NOTE: a test source set must never dependsOn a main source set — that would pull
+        // main sources in as test fragments (and lose the platform actuals). Main visibility
+        // comes from the associated compilation.
+        val jvmTest by creating { dependsOn(commonTest.get()) }
         androidMain.get().dependsOn(jvmMain)
         val desktopMain by getting { dependsOn(jvmMain) }
         val desktopTest by getting { dependsOn(jvmTest) }
