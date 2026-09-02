@@ -2,14 +2,15 @@
 
 # 📚 YKS Takip
 
-**Çevrimdışı-öncelikli YKS hazırlık uygulaması — deneme analizi, haftalık plan, odak sayacı, konu takibi ve isteğe bağlı BYOK yapay zekâ koçu. Android tabletler için.**
+**Çevrimdışı-öncelikli YKS hazırlık uygulaması — deneme analizi, haftalık plan, odak sayacı, konu takibi ve isteğe bağlı BYOK yapay zekâ koçu. Android tabletler, macOS ve Windows için (Kotlin Multiplatform).**
 
-*Offline-first YKS (Turkish university entrance exam) prep tracker — mock-exam analytics, weekly planner, focus timer, topic tracking, and an optional bring-your-own-key AI coach. Built for Android tablets.*
+*Offline-first YKS (Turkish university entrance exam) prep tracker — mock-exam analytics, weekly planner, focus timer, topic tracking, and an optional bring-your-own-key AI coach. Android tablets, macOS and Windows (Kotlin Multiplatform).*
 
-![Platform](https://img.shields.io/badge/platform-Android%209%2B-3DDC84?logo=android&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Android%209%2B%20%C2%B7%20macOS%20%C2%B7%20Windows-3DDC84?logo=android&logoColor=white)
+![KMP](https://img.shields.io/badge/Kotlin%20Multiplatform-Compose%201.12-7F52FF?logo=kotlin&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4)
-![Version](https://img.shields.io/badge/version-1.3.0-orange)
+![Version](https://img.shields.io/badge/version-2.0.0-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **[🇹🇷 Türkçe](#turkce) · [🇬🇧 English](#english)**
@@ -28,6 +29,7 @@
 
 - [Bu proje nedir?](#tr-nedir)
 - [Tasarım ilkeleri](#tr-ilkeler)
+- [Platformlar (v2.0)](#tr-platformlar)
 - [Özellikler](#tr-ozellikler)
 - [Ekran görüntüleri](#tr-ekranlar)
 - [Gizlilik modeli](#tr-gizlilik)
@@ -91,6 +93,34 @@ Bu ilkeler koddan önce yazıldı ve her sürümde korunuyor
   yükseltme* olarak doğrulanır. Yedek formatı her zaman tüm eski sürümleri okur.
 - **Her içe aktarma insan onayından geçer.** CSV veya AI kaynaklı hiçbir veri
   önizleme/onay ekranı görmeden veritabanına yazılmaz.
+
+<a id="tr-platformlar"></a>
+## Platformlar (v2.0)
+
+v2.0 ile uygulama **Kotlin Multiplatform** oldu: aynı kod Android tablette, macOS'ta ve
+Windows'ta çalışır. Cihazlar bilinçli olarak **ayrı adalardır** — hesap yok, eşitleme yok;
+cihazlar arası taşıma yolu JSON yedektir (bir platformda dışa aktar, diğerinde geri yükle —
+sayılar birebir aynı gelir). Web (Kotlin/Wasm) sonraki faza ertelendi; kalıcılık ve ağ
+katmanı arayüzlerin arkasında olduğu için yolu kapatmaz.
+
+| Özellik | Android | macOS / Windows |
+|---|---|---|
+| Deneme, analiz, konu, plan, sayaç, notlar, AI Koç | ✅ | ✅ (aynı ekranlar, pencere genişliğine göre geniş/dar yerleşim) |
+| Grafikler | Vico 3.x (v1.x ile aynı) | Canvas tabanlı MiniViz çizimleri |
+| JSON yedek (v5, v1–v4 okur) | ✅ SAF | ✅ yerel dosya diyalogları (FileKit) — **çapraz platform uyumlu** |
+| CSV dışa/içe aktarma | ✅ | ✅ |
+| Paylaşım | Sistem paylaşım sayfası | Panoya kopyala + "Dosyayı kaydet" diyaloğu, tepsi bildirimiyle |
+| Sayaç bitişi | Kesin alarm + ön plan servisi + açılış alıcısı | Süreç içi zamanlayıcı + sistem bildirimi (tepsi) |
+| Ana ekran widget'ı | ✅ | — (masaüstü karşılığı yok) |
+| API anahtarı deposu | Android Keystore (AES-GCM) | AES-GCM şifreli dosya, kurulum başına rastgele anahtar, yalnız-sahip izinleri — **Keystore'dan zayıf** (aşağıya bakın) |
+| Klavye | — | Enter: deneme formunu kaydeder · Esc: diyalogları kapatır · ⌘/Ctrl+N: AI Koç'ta yeni sohbet |
+| Paket | İmzalı APK (v1.x üzerine yerinde güncelleme) | `.dmg` / `.msi` (imzasız — Gatekeeper/SmartScreen notu aşağıda) |
+
+> 🔐 **Masaüstü anahtar deposu uyarısı:** masaüstünde API anahtarları kullanıcı veri dizininde
+> (`secrets/`) AES-GCM ile şifrelenir; anahtar dosyası aynı dizindedir ve yalnız sahibinin
+> okuyabileceği izinlerle yazılır. Bu, Android Keystore'un donanım korumasından **daha
+> zayıftır**: profil dizinine okuma erişimi olan her şey anahtarları çözebilir. macOS Keychain /
+> Windows DPAPI entegrasyonu ertelendi. Anahtarlar yine hiçbir yedeğe girmez.
 
 <a id="tr-ozellikler"></a>
 ## Özellikler
@@ -211,7 +241,7 @@ Bu ilkeler koddan önce yazıldı ve her sürümde korunuyor
 | Hesap / kayıt | Yok. Uygulama açılır ve çalışır. |
 | Telemetri / analitik / reklam | Yok. Hiçbir SDK gömülü değil. |
 | Ağ trafiği | Yalnızca **sizin eklediğiniz** AI profilinin uç noktasına. Profil yoksa sıfır istek. Ollama profiliyle trafik yerel ağı hiç terk etmez. |
-| API anahtarları | Cihazda **Android Keystore** (AES-GCM) ile şifreli saklanır; profil başına ayrı anahtar. Yedek dosyalarına **asla** yazılmaz — geri yüklemeden sonra yeniden girilir. |
+| API anahtarları | Android: **Android Keystore** (AES-GCM). Masaüstü: kullanıcı dizininde AES-GCM şifreli dosya (Keystore'dan zayıf — bkz. Platformlar). Profil başına ayrı anahtar; yedek dosyalarına **asla** yazılmaz. |
 | AI'a giden veri | Yalnızca açıkça izin verirseniz kompakt bir istatistik özeti (son netler, plan tamamlama, zayıf konular, çalışma dk). Ayarlardan kapatılabilir. |
 | Aile ile paylaşım | Öğrencinin elindedir: haftalık rapor metni (yalnız özet) veya Drive-eşitlenen klasöre otomatik yedek. Gizli izleme kanalı yoktur. |
 | Cleartext HTTP | Yalnızca Ollama-LAN senaryosu için açıktır (`http://…:11434`). |
@@ -233,6 +263,19 @@ kendiniz derleyin (aşağıda).
 3. Bildirim izni sorulduğunda verin — sayaç bitiş bildirimi için gerekir (verilmezse
    sayaç yalnızca uygulama içinde tamamlanır).
 
+### macOS / Windows (v2.0)
+
+- **macOS:** [Releases](../../releases) sayfasından `.dmg` indirin, uygulamayı Applications'a
+  sürükleyin. Paket **imzasız ve notarize edilmemiştir** (Developer ID ertelendi): ilk açılışta
+  Gatekeeper uyarır — uygulamaya **sağ tıklayıp Aç** deyin (veya Sistem Ayarları → Gizlilik ve
+  Güvenlik → "Yine de Aç"). Veriler `~/Library/Application Support/YKS Takip` altındadır.
+- **Windows:** `.msi` indirip kurun. SmartScreen "Windows PC'nizi korudu" diyebilir —
+  **Daha fazla bilgi → Yine de çalıştır**. Veriler `%APPDATA%\YKS Takip` altındadır.
+- Pencere en az 900×600'dür; boyut ve konum hatırlanır; açık/koyu tema sistemi izler
+  (Ayarlar'dan sabitlenebilir).
+- Tabletteki verileri masaüstüne taşımak için: tablette **Ayarlar → Dışa Aktar** → dosyayı
+  bilgisayara kopyalayın → masaüstünde **Ayarlar → Geri Yükle**. Tersi de aynı şekilde çalışır.
+
 <a id="tr-derleme"></a>
 ## Derleme (geliştiriciler)
 
@@ -252,6 +295,32 @@ Komut satırı:
 macOS + Homebrew ile JDK gerekiyorsa: `brew install openjdk@17` ve
 `export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home`.
 
+Testler (75 v1.x testi + platform sözleşmeleri + çevrimdışı masaüstü ekran testleri; JVM'de koşar):
+
+```bash
+./gradlew :shared:desktopTest
+```
+
+### Masaüstü uygulaması (v2.0)
+
+```bash
+./gradlew :desktopApp:run
+```
+
+```bash
+./gradlew :desktopApp:packageDmg
+```
+
+```bash
+./gradlew :desktopApp:packageMsi
+```
+
+jpackage yalnızca üzerinde çalıştığı işletim sistemi için paket üretir: `.dmg` macOS'ta,
+`.msi` Windows'ta derlenir (CI matrisi ikisini de üretir, bkz. `.github/workflows/release.yml`).
+Homebrew'un OpenJDK'sı Compose'un paketleme denetimine takılır; `gradle.properties` içindeki
+`compose.desktop.packaging.checkJdkVendor=false` bunu bilinçli olarak kapatır (Temurin veya
+JetBrains Runtime ile paketlemek daha güvenlidir).
+
 ### Sürüm (release) derlemesi ve imzalama
 
 - `keystore.properties` **yoksa** `./gradlew :app:assembleRelease` **imzasız** APK
@@ -270,31 +339,33 @@ macOS + Homebrew ile JDK gerekiyorsa: `brew install openjdk@17` ve
 
 | Katman | Seçim |
 |---|---|
-| Dil / UI | Kotlin 2.3.21 · Jetpack Compose (BOM 2026.08) · Material 3 + `material3-adaptive` |
-| Derleme | AGP 9.3.2 (gömülü Kotlin — `org.jetbrains.kotlin.android` uygulanmaz) · Gradle 9.7.1 · KSP · minSdk 29 / targetSdk 35 / compileSdk 37 |
-| Veri | Room 2.8.4 (şema v5, `exportSchema` açık, elle yazılmış doğrulanmış migration'lar) · DataStore Preferences · kotlinx.serialization |
-| DI / Grafik | Hilt 2.60.1 · Vico 3.3.1 + özel Canvas mini-viz kiti (sparkline, halka, dilimli çubuk, ısı şeridi) |
-| AI | Resmî Anthropic Java SDK 2.59.0 · OkHttp tabanlı OpenAI-uyumlu istemci |
-| Diğer | Glance (widget) · mikepenz multiplatform-markdown-renderer (Notlar) |
+| Dil / UI | Kotlin 2.3.21 · **Kotlin Multiplatform** · **Compose Multiplatform 1.12.0** (= Jetpack Compose 1.12.0) · Material 3 + `material3-adaptive` (JetBrains çok platformlu artefaktları) |
+| Modüller | `:shared` (ortak kod) · `:androidApp` (ince) · `:desktopApp` (ince) — bkz. [Proje yapısı](#tr-derleme) |
+| Derleme | AGP 9.3.2 (gömülü Kotlin) + `com.android.kotlin.multiplatform.library` · Gradle 9.7.1 · KSP · minSdk 29 / targetSdk 35 / compileSdk 37 · Compose Desktop (jpackage) |
+| Veri | **Room KMP** 2.8.4 (şema v5, `@ConstructedBy`, elle yazılmış doğrulanmış migration'lar; Android'de çerçeve SQLite, masaüstünde BundledSQLiteDriver) · **DataStore KMP** · kotlinx.serialization |
+| DI / Grafik | **Koin 4.2.2** (Hilt yerine; katman başına bir modül + platform başına bir modül) · Android: Vico 3.3.1 · Masaüstü: Canvas MiniViz çizimleri |
+| Dosya / platform | Android: SAF · Masaüstü: FileKit 0.15.0 diyalogları · Compose Desktop tepsi bildirimleri |
+| AI | Resmî Anthropic Java SDK 2.59.0 · OkHttp tabanlı OpenAI-uyumlu istemci (bu fazda JVM-only; arayüz arkasında) |
+| Diğer | Glance (widget, yalnız Android) · mikepenz multiplatform-markdown-renderer (Notlar) |
 
 ### Proje yapısı
 
 ```
-app/src/main/java/com/yks2027/tracker/
-├── core/
-│   ├── ai/          # Profiller, şifreli anahtar deposu, Anthropic + OpenAI-uyumlu
-│   │                # istemciler, hata eşleme, AI karne çıkarımı
-│   ├── backup/      # JSON yedek v5 (v1–v4 okur), CSV codec
-│   ├── database/    # Room: 13 tablo, DAO'lar, MIGRATION_1_2 … MIGRATION_4_5
-│   ├── datastore/   # Ayarlar + sayaç durum makinesi kalıcılığı
-│   ├── model/       # Saf alan mantığı: net matematiği, hafta anahtarı, ısı şeridi…
-│   ├── time/        # Enjekte edilebilir IstanbulClock
-│   └── ui/          # Tema, jetonlar, MiniViz + Vico grafik sarmalayıcıları
-├── feature/
-│   ├── dashboard/  exams/  topics/  planner/  timer/
-│   ├── aikoc/       # Sohbet + oturum paneli (SessionListLogic saf katman)
-│   ├── notes/  importexport/  settings/
-└── widget/          # Glance geri sayım widget'ı
+shared/                                  # Kotlin Multiplatform kütüphanesi
+├── src/commonMain/…/core/platform/      # Platform sözleşmeleri (SecretStore, PlatformFiles, …)
+├── src/commonMain/…/core/database/      # Room KMP: 13 tablo, DAO'lar, MIGRATION_1_2 … 4_5, @ConstructedBy
+├── src/commonMain/…/core/ui/charts/     # Grafik sözleşmesi (expect) + ChartPoint
+├── src/jvmMain/…                        # Android + masaüstünün paylaştığı uygulama kodu (JDK kullanabilir)
+│   ├── core/{ai,backup,datastore,model,time,ui,di}
+│   └── feature/{dashboard,exams,topics,planner,timer,aikoc,notes,importexport,settings} + ui/
+├── src/androidMain/…                    # Keystore SecretStore, DataStore/DB fabrikaları, Vico grafikleri
+├── src/desktopMain/…                    # AES dosya SecretStore, BundledSQLite, FileKit, tepsi, Canvas grafikleri
+├── src/jvmTest/…                        # 75 v1.x testi + sözleşme testleri
+├── src/desktopTest/…                    # Masaüstü: gizli depo, yollar, çevrimdışı ekran turu, klavye, yedek/CSV
+└── schemas/                             # Room şema geçmişi 1–5 (commit'li)
+androidApp/                              # İnce Android uygulaması: Activity, servis/alıcılar, widget, SAF köprüsü, Koin
+desktopApp/                              # İnce masaüstü uygulaması: pencere, tepsi, kısayollar, jpackage
+.github/workflows/release.yml            # Etiketle: testler → APK + .dmg/.msi → GitHub Release
 ```
 
 Ayrıntılı mimari için: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -374,10 +445,14 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
 <a id="tr-test"></a>
 ## Test ve doğrulama disiplini
 
-- **75 unit test** (v1.3.0 itibarıyla): net matematiği (negatif ve kesirli örnekler
-  dahil), hafta devri, sayaç durum makinesi, CSV gidiş-dönüşü, AI çıkarım JSON
-  sözleşmesi, profil migrasyonu, oturum sıralama/filtre/arama mantığı, yedek geri
-  yükleme klasör koruması.
+- **75 v1.x unit testi değişmeden** `jvmTest`'e taşındı (v2.0 refaktörünün regresyon
+  kapısı) + **41 yeni test**: sayaç-bitiş zamanlayıcı sözleşmesi (ortak sahte ile),
+  yedek döndürme, masaüstü gizli depo gidiş-dönüşü, işletim sistemi başına veri dizini,
+  çevrimdışı çizilen masaüstü ekran turu (geniş/dar, açık/koyu), Enter ile kaydetme,
+  gerçek uçlara karşı "Bağlantıyı Sına", çapraz platform yedek/CSV içe aktarma —
+  toplam **116/116**.
+- Şema v5 KMP Room derleyicisince yeniden üretilip commit'li dosyayla **bit-bit**
+  karşılaştırıldı; gerçek v1.3 `yks.db` masaüstünde BundledSQLiteDriver ile değişmeden açıldı.
 - Her sürümde: migration üretilen şemayla **bit-bit** karşılaştırılır **ve** emülatörde
   önceki sürümün gerçek verisi üzerine **yerinde yükseltme** ile canlı doğrulanır
   (ör. v1.2→v1.3: 4 gerçek sohbet, sıfır kayıp).
@@ -391,8 +466,9 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
 | Belge | İçerik |
 |---|---|
 | [docs/PRD-v2.md](docs/PRD-v2.md) | Ürün gereksinimleri: doğrulanmış YKS alan bilgisi (kaynaklarıyla), modül spesifikasyonları, kabul kriterleri, v1'den değişiklikler. §17 sürüm notlarıdır. |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Mimari: veri modeli, migration reçeteleri, yedek formatı, sayaç durum makinesi, AI katmanı, içe aktarma hattı. |
-| [CHANGELOG.md](CHANGELOG.md) | Sürüm geçmişi (v1.0.0 → v1.3.0). |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Mimari: veri modeli, migration reçeteleri, yedek formatı, sayaç durum makinesi, AI katmanı, içe aktarma hattı, **v2.0 platform sınırı**. |
+| [.github/workflows/release.yml](.github/workflows/release.yml) | Etiket push'unda testler → APK (gizli anahtar varsa imzalı) + macOS `.dmg` + Windows `.msi` → GitHub Release. |
+| [CHANGELOG.md](CHANGELOG.md) | Sürüm geçmişi (v1.0.0 → v2.0.0). |
 | [docs/GELISTIRME-GUNLUGU.md](docs/GELISTIRME-GUNLUGU.md) | Tarihsel geliştirme/doğrulama günlüğü (sürüm başına test kayıtları). |
 
 <a id="tr-kapsam"></a>
@@ -436,6 +512,7 @@ Jetpack Compose / Room / Hilt ekipleri.
 
 - [What is this?](#en-what)
 - [Design principles](#en-principles)
+- [Platforms (v2.0)](#en-platforms)
 - [Features](#en-features)
 - [Screenshots](#en-screens)
 - [Privacy model](#en-privacy)
@@ -507,6 +584,34 @@ Written down before the code, enforced in every release (they are the core of th
   upgrade over real data on an emulator. The backup reader accepts every older format.
 - **Every import passes a human.** No CSV- or AI-sourced data ever reaches the
   database without a preview/confirm screen.
+
+<a id="en-platforms"></a>
+## Platforms (v2.0)
+
+With v2.0 the app is **Kotlin Multiplatform**: the same code runs on the Android tablet,
+macOS and Windows. Devices are deliberately **separate islands** — no accounts, no sync;
+the transfer path is the JSON backup (export on one platform, restore on the other — the
+counts come back identical). Web (Kotlin/Wasm) is deferred to a later phase; persistence and
+networking already sit behind interfaces, so nothing blocks it.
+
+| Feature | Android | macOS / Windows |
+|---|---|---|
+| Exams, analytics, topics, planner, timer, notes, AI coach | ✅ | ✅ (same screens; expanded/compact layout follows window width) |
+| Charts | Vico 3.x (unchanged from v1.x) | Canvas-drawn MiniViz charts |
+| JSON backup (v5, reads v1–v4) | ✅ SAF | ✅ native dialogs (FileKit) — **cross-platform compatible** |
+| CSV export/import | ✅ | ✅ |
+| Sharing | System share sheet | Copy to clipboard + "Save file" dialog, confirmed by a tray notification |
+| Timer completion | Exact alarm + foreground service + boot receiver | In-process scheduler + system notification (tray) |
+| Home-screen widget | ✅ | — (no desktop equivalent) |
+| API-key store | Android Keystore (AES-GCM) | AES-GCM file, per-installation random key, owner-only permissions — **weaker than Keystore** (see below) |
+| Keyboard | — | Enter saves the exam form · Esc closes dialogs · ⌘/Ctrl+N new chat in AI coach |
+| Package | Signed APK (in-place update over v1.x) | `.dmg` / `.msi` (unsigned — Gatekeeper/SmartScreen note below) |
+
+> 🔐 **Desktop key-store caveat:** on desktop, API keys are AES-GCM encrypted under the user
+> data dir (`secrets/`); the key file lives next to them with owner-only permissions. This is
+> **weaker** than the hardware-backed Android Keystore: anything that can read the user profile
+> can decrypt the keys. macOS Keychain / Windows DPAPI integration is deferred. Keys still never
+> enter any backup.
 
 <a id="en-features"></a>
 ## Features
@@ -616,7 +721,7 @@ CSV import preview, and dark theme. (UI language is Turkish.)
 | Accounts / sign-up | None. The app opens and works. |
 | Telemetry / analytics / ads | None. No such SDK is embedded. |
 | Network traffic | Only to the endpoint of an AI profile **you** add. No profile → zero requests. With an Ollama profile, traffic never leaves your LAN. |
-| API keys | Encrypted on-device with the **Android Keystore** (AES-GCM), one key per profile. **Never** written to backups — re-enter after a restore. |
+| API keys | Android: **Android Keystore** (AES-GCM). Desktop: AES-GCM file under the user dir (weaker than Keystore — see Platforms). One key per profile; **never** written to backups. |
 | Data sent to AI | Only a compact stats summary (recent nets, plan completion, weak topics, study minutes), and only if you allow it. Toggle in Settings. |
 | Family sharing | In the student's hands: weekly report text (aggregates only) or auto-backups into a Drive-synced folder. No hidden monitoring channel. |
 | Cleartext HTTP | Enabled solely for the Ollama-on-LAN scenario (`http://…:11434`). |
@@ -638,6 +743,19 @@ Prebuilt APKs are not stored in the repository; grab one from
 3. Grant the notification permission when asked — the timer's completion notification
    needs it (without it the timer still completes in-app).
 
+### macOS / Windows (v2.0)
+
+- **macOS:** download the `.dmg` from [Releases](../../releases) and drag the app to
+  Applications. The package is **unsigned and not notarized** (Developer ID deferred), so
+  Gatekeeper warns on first launch — **right-click → Open** (or System Settings → Privacy &
+  Security → "Open Anyway"). Data lives in `~/Library/Application Support/YKS Takip`.
+- **Windows:** download and run the `.msi`. SmartScreen may say "Windows protected your PC" —
+  **More info → Run anyway**. Data lives in `%APPDATA%\YKS Takip`.
+- Minimum window 900×600; size and position are remembered; light/dark follows the system
+  (can be pinned in Settings).
+- To move data from the tablet: **Settings → Export** on the tablet → copy the file over →
+  **Settings → Restore** on the desktop. The reverse works the same way.
+
 <a id="en-build"></a>
 ## Building (developers)
 
@@ -656,6 +774,32 @@ Command line:
 
 On macOS with Homebrew, if you need a JDK: `brew install openjdk@17`, then
 `export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home`.
+
+Tests (the 75 v1.x tests + platform contracts + offscreen desktop screen tests; run on the JVM):
+
+```bash
+./gradlew :shared:desktopTest
+```
+
+### Desktop app (v2.0)
+
+```bash
+./gradlew :desktopApp:run
+```
+
+```bash
+./gradlew :desktopApp:packageDmg
+```
+
+```bash
+./gradlew :desktopApp:packageMsi
+```
+
+jpackage only targets the OS it runs on: the `.dmg` is built on macOS and the `.msi` on
+Windows (the CI matrix produces both — see `.github/workflows/release.yml`). Homebrew's
+OpenJDK trips Compose's packaging vendor check; `compose.desktop.packaging.checkJdkVendor=false`
+in `gradle.properties` disables it deliberately (packaging with Temurin or the JetBrains
+Runtime is the safer choice).
 
 ### Release builds & signing
 
@@ -676,31 +820,33 @@ On macOS with Homebrew, if you need a JDK: `brew install openjdk@17`, then
 
 | Layer | Choice |
 |---|---|
-| Language / UI | Kotlin 2.3.21 · Jetpack Compose (BOM 2026.08) · Material 3 + `material3-adaptive` |
-| Build | AGP 9.3.2 (built-in Kotlin — `org.jetbrains.kotlin.android` must not be applied) · Gradle 9.7.1 · KSP · minSdk 29 / targetSdk 35 / compileSdk 37 |
-| Data | Room 2.8.4 (schema v5, `exportSchema` on, hand-written verified migrations) · DataStore Preferences · kotlinx.serialization |
-| DI / Charts | Hilt 2.60.1 · Vico 3.3.1 + a custom Canvas mini-viz kit (sparklines, rings, segmented bars, heat strip) |
-| AI | Official Anthropic Java SDK 2.59.0 · OkHttp-based OpenAI-compatible client |
-| Misc | Glance (widget) · mikepenz multiplatform-markdown-renderer (Notes) |
+| Language / UI | Kotlin 2.3.21 · **Kotlin Multiplatform** · **Compose Multiplatform 1.12.0** (= Jetpack Compose 1.12.0) · Material 3 + `material3-adaptive` (JetBrains multiplatform artifacts) |
+| Modules | `:shared` (all app code) · `:androidApp` (thin) · `:desktopApp` (thin) — see [Project layout](#en-build) |
+| Build | AGP 9.3.2 (built-in Kotlin) + `com.android.kotlin.multiplatform.library` · Gradle 9.7.1 · KSP · minSdk 29 / targetSdk 35 / compileSdk 37 · Compose Desktop (jpackage) |
+| Data | **Room KMP** 2.8.4 (schema v5, `@ConstructedBy`, hand-written verified migrations; framework SQLite on Android, BundledSQLiteDriver on desktop) · **DataStore KMP** · kotlinx.serialization |
+| DI / Charts | **Koin 4.2.2** (replaces Hilt; one module per layer + one per platform) · Android: Vico 3.3.1 · Desktop: Canvas MiniViz charts |
+| Files / platform | Android: SAF · Desktop: FileKit 0.15.0 dialogs · Compose Desktop tray notifications |
+| AI | Official Anthropic Java SDK 2.59.0 · OkHttp-based OpenAI-compatible client (JVM-only in this phase; behind interfaces) |
+| Misc | Glance (widget, Android only) · mikepenz multiplatform-markdown-renderer (Notes) |
 
 ### Project layout
 
 ```
-app/src/main/java/com/yks2027/tracker/
-├── core/
-│   ├── ai/          # Profiles, encrypted key store, Anthropic + OpenAI-compat
-│   │                # clients, error mapping, AI report-card extraction
-│   ├── backup/      # JSON backup v5 (reads v1–v4), CSV codec
-│   ├── database/    # Room: 13 tables, DAOs, MIGRATION_1_2 … MIGRATION_4_5
-│   ├── datastore/   # Settings + timer state-machine persistence
-│   ├── model/       # Pure domain logic: net math, week keying, heat strip…
-│   ├── time/        # Injectable IstanbulClock
-│   └── ui/          # Theme, tokens, MiniViz + Vico chart wrappers
-├── feature/
-│   ├── dashboard/  exams/  topics/  planner/  timer/
-│   ├── aikoc/       # Chat + session pane (pure SessionListLogic layer)
-│   ├── notes/  importexport/  settings/
-└── widget/          # Glance countdown widget
+shared/                                  # Kotlin Multiplatform library
+├── src/commonMain/…/core/platform/      # Platform contracts (SecretStore, PlatformFiles, …)
+├── src/commonMain/…/core/database/      # Room KMP: 13 tables, DAOs, MIGRATION_1_2 … 4_5, @ConstructedBy
+├── src/commonMain/…/core/ui/charts/     # Chart contract (expect) + ChartPoint
+├── src/jvmMain/…                        # App code shared by Android + desktop (may use the JDK)
+│   ├── core/{ai,backup,datastore,model,time,ui,di}
+│   └── feature/{dashboard,exams,topics,planner,timer,aikoc,notes,importexport,settings} + ui/
+├── src/androidMain/…                    # Keystore SecretStore, DataStore/DB factories, Vico charts
+├── src/desktopMain/…                    # AES-file SecretStore, BundledSQLite, FileKit, tray, Canvas charts
+├── src/jvmTest/…                        # The 75 v1.x tests + contract tests
+├── src/desktopTest/…                    # Desktop: secret store, paths, offscreen tour, keyboard, backup/CSV
+└── schemas/                             # Room schema history 1–5 (committed)
+androidApp/                              # Thin Android app: Activity, service/receivers, widget, SAF bridge, Koin
+desktopApp/                              # Thin desktop app: window, tray, shortcuts, jpackage
+.github/workflows/release.yml            # On tag: tests → APK + .dmg/.msi → GitHub Release
 ```
 
 Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -781,10 +927,13 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
 <a id="en-testing"></a>
 ## Testing & verification discipline
 
-- **75 unit tests** (as of v1.3.0): net math (including negative and fractional
-  cases), week rollover, the timer state machine, CSV round-trips, the AI-extraction
-  JSON contract, profile migration, session ordering/filter/search logic, and the
-  backup-restore folder guard.
+- The **75 v1.x unit tests moved unchanged** into `jvmTest` (the regression gate for the
+  v2.0 refactor) + **41 new tests**: the timer-completion scheduler contract (shared
+  fake), backup rotation, desktop secret-store round-trip, per-OS data dir, the offscreen
+  desktop screen tour (expanded/compact, light/dark), Enter-to-save, "Test Connection"
+  against real endpoints, cross-platform backup/CSV import — **116/116**.
+- Schema v5 regenerated by the KMP Room compiler and compared **byte-for-byte** with the
+  committed file; a real v1.3 `yks.db` opened unchanged on desktop under BundledSQLiteDriver.
 - Every release: migrations are compared **byte-for-byte** against the generated
   schema **and** verified live as an in-place upgrade over the previous version's real
   data on an emulator (e.g. v1.2→v1.3: four real chat threads, zero loss).
@@ -798,8 +947,9 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
 | Document | Contents |
 |---|---|
 | [docs/PRD-v2.md](docs/PRD-v2.md) | Product requirements (English): verified YKS domain facts with sources, module specs, acceptance criteria, changes from v1. §17 is the release log (Turkish). |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture: data model, migration recipes, backup format, timer state machine, AI layer, import pipeline. |
-| [CHANGELOG.md](CHANGELOG.md) | Release history (v1.0.0 → v1.3.0). |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture: data model, migration recipes, backup format, timer state machine, AI layer, import pipeline, **v2.0 platform boundary**. |
+| [.github/workflows/release.yml](.github/workflows/release.yml) | On a tag push: tests → APK (signed only when secrets exist) + macOS `.dmg` + Windows `.msi` → GitHub Release. |
+| [CHANGELOG.md](CHANGELOG.md) | Release history (v1.0.0 → v2.0.0). |
 | [docs/GELISTIRME-GUNLUGU.md](docs/GELISTIRME-GUNLUGU.md) | Historical development/verification log (Turkish). |
 
 <a id="en-scope"></a>

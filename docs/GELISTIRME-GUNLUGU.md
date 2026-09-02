@@ -142,3 +142,43 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
 - D+Y > soru sayısı girişte reddedilir; negatif net her yerde doğru görünür.
 - Pazar → Pazartesi geçişinde yeni hafta açılır, eski hafta verisi durur.
 - Dışa aktar → verileri sil → içe aktar → aynı durum.
+
+---
+
+## v2.0.0 doğrulama kaydı (2026-09-02, "Çoklu Platform")
+
+> ✅ **Testler:** 75 v1.x testi değişmeden `jvmTest`'te + 41 yeni = **116/116** (`:shared:desktopTest`).
+> Şema v5: dosya silinip KMP Room derleyicisince yeniden üretildi → commit'li v1.3 dosyasıyla **bit-bit aynı**.
+>
+> **Android (emülatör `yks_tab`, gerçek v1.3.0 kurulumu + verisi):** imzalı v2.0.0 (`apksigner`: aynı sertifika
+> `a20e34b8…49b897`) `adb install -r` ile yerinde güncellendi → versionCode 8 / 2.0.0; `user_version=5`,
+> 17 deneme / 59 ders / 4 sohbet / 10 mesaj / 1 klasör / 3 not / 2 profil / 12 konu işareti **değişmedi**;
+> `ai_secrets` (91 B) / `settings` / `timer_state` DataStore dosyaları dokunulmadı. Ayarlar → OpenAI profili →
+> "Bağlantıyı Sına": gerçek api.openai.com 401 gövdesinde v1.3'te kaydedilen anahtar maskeli
+> (`sk-test-******c123`) göründü → **Keystore anahtarı DI/Room değişiminden sonra hâlâ çözülüyor**. 1 dakikalık
+> gerçek geri sayım: FGS bildirimi, 70 sn sonra "Süre doldu! / Odak oturumu tamamlandı." bildirimi,
+> `focus_sessions` 24→25 (planned 1, completed, 60 000 ms), durum IDLE. 9 ekranlık açık tur + 3 koyu ekran;
+> oturum boyunca **0 FATAL**.
+>
+> **Masaüstü (bu Mac):** `packageDmg` → `YKS Takip-2.0.0.dmg` (153 MB, JRE dahil; Homebrew JDK için
+> `checkJdkVendor=false`). Paketlenmiş uygulama, emülatörden alınan **gerçek v1.3 `yks.db`** ile açıldı
+> (BundledSQLiteDriver; WAL oluştu, tüm sayılar aynı), `datastore/`, `secrets/`, `window.properties` yazıldı,
+> günlük temiz. Ekran-kaydı/erişilebilirlik izni olmadığı için tur **çevrimdışı** çizildi
+> (`DesktopTourTest`, 14 PNG: geniş 1280 / dar 700, açık/koyu; AI Koç panelinin genişliğe göre
+> gelip gitmesi assert'li). Enter ile deneme kaydı (`DesktopKeyboardFlowTest`), gerçek Anthropic + OpenAI
+> uçlarına "Bağlantıyı Sına" (401 + ayrıntı), zamanlayıcı sözleşmesi ve gizli depo gidiş-dönüşü testlerde.
+>
+> **Çapraz platform:** Android → `Dışa Aktar` (SAF) → `android_export.json` → masaüstü `importReplace`:
+> 17/4/10/3 birebir. Masaüstü `exportJson` → Android `Geri Yükle` (SAF seçici + onay): 17/59/4/10/1/3/2/12
+> birebir, `pre_import_snapshot.json` yazıldı. CSV: Android CSV'si masaüstü İçe Aktar merkezinden
+> (17 satır, 17 mükerrer işaretli, seçilince +17 eklendi); masaüstü CSV'si Android'de önizlendi.
+>
+> **Bulunan ve düzeltilen hatalar:** (1) `application{}` kapsamında `collectAsStateWithLifecycle` →
+> "LocalLifecycleOwner not present" açılış çökmesi; (2) `jvmTest.dependsOn(jvmMain)` — test kaynak
+> setinin ana kaynak setine bağlanması `expect`'leri test derlemesine taşıyıp `actual`'sız bırakıyordu;
+> (3) Room Gradle eklentisi KMP hedefleri için şema yazmıyordu (`copyRoomSchemas NO-SOURCE`) → KSP
+> `room.schemaLocation`; (4) `sqlite-bundled` commonMain'de Android APK'sını 5 MB şişiriyordu → yalnız masaüstü.
+>
+> **Bilinçli sınırlar:** Windows `.msi` bu Mac'te üretilemez (jpackage host-OS) — CI matrisi üretir;
+> masaüstü paketleri imzasız; canlı pencere yeniden boyutlandırma ekran görüntüsüyle belgelenemedi (izin yok),
+> aynı `currentWindowAdaptiveInfo()` yolu iki genişlikte çevrimdışı doğrulandı.

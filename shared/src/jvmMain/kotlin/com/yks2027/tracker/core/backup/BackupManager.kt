@@ -517,6 +517,8 @@ class BackupManager(
             folderId?.takeIf { it in existingFolderIds }
 
         const val APP_VERSION = "2.0.0"
+        /** Exposed for the cross-platform round-trip test. */
+        const val FORMAT_FOR_TESTS = BackupDocument.FORMAT
         const val AUTO_BACKUP_INTERVAL_MS = 7L * 86_400_000L
         const val KEEP_BACKUPS = 8
     }

@@ -262,6 +262,49 @@ AiProfilesRepository (Room meta) + AiSecretsRepository (şifreli anahtarlar)
 - Paylaşılan her şey (haftalık rapor, CSV) yalnız özet/deneme verisidir; sohbetler ve
   notlar hiçbir paylaşım yoluna girmez.
 
+## 12. Platform sınırı (v2.0)
+
+v2.0, uygulamayı Kotlin Multiplatform'a taşır. Modüller: `:shared` (tüm uygulama kodu),
+`:androidApp` ve `:desktopApp` (ince kabuklar: pencere/Activity, platform servisleri, Koin
+başlatma). Kaynak setleri:
+
+| Kaynak seti | İçerik |
+|---|---|
+| `commonMain` | Platform-nötr sözleşmeler (`core/platform`), **Room paketi** (varlıklar, DAO'lar, `YksDatabase` + migration'lar, `@ConstructedBy` ile `expect object YksDatabaseConstructor`), grafik sözleşmesi (`expect` bileşenler), enum'lar |
+| `jvmMain` | Android + masaüstünün paylaştığı uygulama kodu; JDK kullanabilir (java.time, Locale, Anthropic Java SDK). Web fazında buradaki parçalar kotlinx-datetime/Ktor ile `commonMain`'e iner |
+| `androidMain` | `AndroidKeystoreSecretStore` (v1.x şifre metni biçimi aynı), `AndroidPreferencesStores` (aynı dosya yolları), `AndroidDatabaseFactory` (çerçeve SQLite — sürücü değişmedi), `AndroidImageDownscaler`, Vico grafik `actual`'ları |
+| `desktopMain` | `DesktopSecretStore` (AES-GCM dosya), `DesktopPreferencesStores`, `DesktopDatabaseFactory` (BundledSQLiteDriver), `DesktopPlatformFiles` (FileKit), `DesktopShareService`, `DesktopTimerCompletionScheduler`, `TrayNotifier`, Canvas grafik `actual`'ları, `desktopPlatformModule` |
+| `jvmTest` / `desktopTest` | 75 v1.x testi + sözleşme testleri / masaüstü testleri ve çevrimdışı ekran turu |
+
+**Sözleşmeler — tam liste, fazlası yok:** `SecretStore` (anahtarlar), `TimerCompletionScheduler`
+(bitiş garantisi + "çalışıyor" göstergesi + bildirim izni), `PlatformFiles` (dosya/klasör
+diyalogları, klasör içine yazma/listeleme/silme, uygulama-özel dosya), `ShareService`,
+`ImageDownscaler`, `PreferencesStores`, `DatabaseFactory`; `expect`: `YksDatabaseConstructor`
+(Room üretir) ve dört grafik bileşeni. Widget ve açılış alıcısı yalnız Android'dir — taklit
+edilmez. Her platform tam **bir** Koin modülüyle bağlar (`androidPlatformModule`,
+`desktopPlatformModule`); paylaşılan `sharedDataModule` + `sharedViewModelModule` platformdan
+habersizdir.
+
+**Kalıcılık:** Room KMP ile migration'lar `SQLiteConnection` alır; SQL metinleri v1.x ile
+bit-bit aynıdır ve şema v5 KMP derleyicisince yeniden üretilip commit'li dosyayla
+karşılaştırılmıştır. Android'de sürücü belirtilmez (uyumluluk yolu = çerçeve SQLite; v1.x
+dosyası olduğu gibi açılır). Masaüstü `~/Library/Application Support/YKS Takip` /
+`%APPDATA%\YKS Takip` altında `yks.db` + `datastore/*.preferences_pb` + `secrets/` tutar.
+Yedek v5 her iki yönde birebir sayılarla taşınır (doğrulama günlüğü).
+
+**Masaüstü anahtar deposu uyarısı:** `secrets/secret.key` (32 rastgele bayt) ve
+`secrets/secrets.properties` (profil id → base64(iv+şifre metni)), ikisi de `rw-------`.
+Kullanıcı profilini okuyabilen her şey çözebilir; Keychain/DPAPI ertelendi.
+
+**Grafikler:** Vico 3.x yalnız Android'de kalır; masaüstü `Charts.desktop.kt` (Canvas: "nice"
+eksen aralıkları, çift eksen, dizin tabanlı etiketler). Vico'nun çok platformlu artefaktları
+2.5.x API hattındadır — Android'i geriye taşımak yerine spec'teki geri dönüş seçildi.
+
+**Test notları:** masaüstü ekran turu `runDesktopComposeUiTest` ile çevrimdışı çizilir
+(ekran-kaydı izni gerektirmez); NavHost'un yığın-yaşam döngüleri AWT iş parçacığı istediği
+için özellik ekranları doğrudan bestelenir, kabuk (ray/alt çubuk) AppRoot ile çizilir.
+
+
 ---
 
 <a id="english"></a>
@@ -527,3 +570,46 @@ AiProfilesRepository (Room metadata) + AiSecretsRepository (encrypted keys)
   the entire update story on sideloaded devices.
 - Everything shareable (weekly report, CSV) is aggregate/exam data only; chats and
   notes never enter any sharing path.
+
+## 12. Platform boundary (v2.0)
+
+v2.0 moves the app to Kotlin Multiplatform. Modules: `:shared` (all app code), `:androidApp`
+and `:desktopApp` (thin shells: window/Activity, platform services, Koin bootstrap). Source sets:
+
+| Source set | Contents |
+|---|---|
+| `commonMain` | Platform-neutral contracts (`core/platform`), the **Room package** (entities, DAOs, `YksDatabase` + migrations, `expect object YksDatabaseConstructor` via `@ConstructedBy`), the chart contract (`expect` composables), enums |
+| `jvmMain` | App code shared by Android and desktop; may use the JDK (java.time, Locale, the Anthropic Java SDK). The web phase moves these pieces down to `commonMain` with kotlinx-datetime/Ktor |
+| `androidMain` | `AndroidKeystoreSecretStore` (v1.x ciphertext format unchanged), `AndroidPreferencesStores` (same file paths), `AndroidDatabaseFactory` (framework SQLite — no driver change), `AndroidImageDownscaler`, Vico chart `actual`s |
+| `desktopMain` | `DesktopSecretStore` (AES-GCM file), `DesktopPreferencesStores`, `DesktopDatabaseFactory` (BundledSQLiteDriver), `DesktopPlatformFiles` (FileKit), `DesktopShareService`, `DesktopTimerCompletionScheduler`, `TrayNotifier`, Canvas chart `actual`s, `desktopPlatformModule` |
+| `jvmTest` / `desktopTest` | The 75 v1.x tests + contract tests / desktop tests and the offscreen screen tour |
+
+**Contracts — the full list, nothing more:** `SecretStore` (keys), `TimerCompletionScheduler`
+(completion guarantee + "running" indication + notification permission), `PlatformFiles`
+(file/directory dialogs, write/list/delete inside a directory, app-private file),
+`ShareService`, `ImageDownscaler`, `PreferencesStores`, `DatabaseFactory`; `expect`:
+`YksDatabaseConstructor` (generated by Room) and the four chart composables. The widget and
+the boot receiver are Android-only — not stubbed. Each platform binds exactly **one** Koin
+module (`androidPlatformModule`, `desktopPlatformModule`); the shared `sharedDataModule` +
+`sharedViewModelModule` know nothing about platforms.
+
+**Persistence:** with Room KMP the migrations receive a `SQLiteConnection`; the SQL strings are
+byte-identical to v1.x, and schema v5 was regenerated by the KMP compiler and compared with the
+committed file. Android sets no driver (compatibility path = framework SQLite; a v1.x file opens
+as-is). Desktop keeps `yks.db` + `datastore/*.preferences_pb` + `secrets/` under
+`~/Library/Application Support/YKS Takip` / `%APPDATA%\YKS Takip`. Backup v5 round-trips with
+identical counts in both directions (development log).
+
+**Desktop key-store caveat:** `secrets/secret.key` (32 random bytes) and
+`secrets/secrets.properties` (profile id → base64(iv+ciphertext)), both `rw-------`. Anything
+that can read the user profile can decrypt; Keychain/DPAPI deferred.
+
+**Charts:** Vico 3.x stays Android-only; desktop renders `Charts.desktop.kt` (Canvas: "nice"
+axis ticks, dual axis, index-based labels). Vico's multiplatform artifacts sit on the 2.5.x API
+line — the spec's fallback was chosen over downgrading Android.
+
+**Testing notes:** the desktop screen tour renders offscreen with `runDesktopComposeUiTest`
+(no screen-recording permission needed); because NavHost's back-stack lifecycles assert the AWT
+thread, feature screens are composed directly while the shell (rail/bottom bar) is rendered via
+AppRoot.
+

@@ -23,3 +23,7 @@ keystore/
 
 # --- Generated artifact page (source of truth is docs/PRD-v2.md) ---
 /PRD-v2.html
+
+# --- Desktop installers (GitHub Releases, not the repo) ---
+*.dmg
+*.msi

@@ -12,6 +12,64 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) ruhundadır; sürümleme
 <a id="turkce"></a>
 # 🇹🇷 Türkçe
 
+## [2.0.0] — 2026-09-02 · "Çoklu Platform: macOS + Windows (Compose Multiplatform)"
+
+**Şema v5 (değişmedi) · Yedek formatı v5 (değişmedi, çapraz platform) · Android versionCode 8 · 116 test**
+
+### Eklendi
+- **Masaüstü uygulaması (macOS `.dmg`, Windows `.msi`):** aynı ekranlar, pencere
+  genişliğine göre geniş/dar yerleşim (tablet döndürme kuralıyla aynı), en az 900×600,
+  boyut/konum hatırlanır, açık/koyu sistemi izler; tepsi simgesi ve sistem bildirimleri.
+- **Kotlin Multiplatform yapısı:** `:shared` (commonMain sözleşmeleri + Room paketi;
+  `jvmMain` Android+masaüstü ortak uygulama kodu; androidMain/desktopMain gerçeklemeleri),
+  `:androidApp` ve `:desktopApp` ince kabuklar. 75 v1.x testi değişmeden taşındı.
+- **Platform sınırı** (docs/ARCHITECTURE §Platform sınırı): `SecretStore`,
+  `TimerCompletionScheduler`, `PlatformFiles`, `ShareService`, `ImageDownscaler`,
+  `PreferencesStores`, `DatabaseFactory` sözleşmeleri + `expect` Room kurucusu ve grafik
+  bileşenleri; platform başına tek Koin modülü.
+- **Masaüstü anahtar deposu:** AES-GCM şifreli dosya, kurulum başına rastgele anahtar,
+  yalnız-sahip izinleri (Keystore'dan zayıf — README'de belgelendi; Keychain/DPAPI ertelendi).
+- **Masaüstü dosya diyalogları** (FileKit 0.15.0), **paylaşım** = panoya kopyala + kaydet
+  diyaloğu, **sayaç bitişi** = süreç içi zamanlayıcı + tepsi bildirimi.
+- **Klavye:** Enter deneme formunu kaydeder; Esc diyalogları kapatır; ⌘/Ctrl+N yeni sohbet.
+- **CI:** `release.yml` — etiket push'unda testler → APK (gizli anahtar varsa imzalı,
+  yoksa imzasız) + `.dmg` (macOS) + `.msi` (Windows) matrisi → GitHub Release.
+
+### Değişti
+- **Koin 4.2.2 Hilt'in yerini aldı** (Hilt yalnız Android). Haftalık otomatik yedek
+  kontrolü aynen çalışır (uygulama açılışında).
+- **Room KMP:** `@ConstructedBy` + `SQLiteConnection` migration API'si — SQL metinleri
+  bit-bit aynı. Android çerçeve SQLite'ta kaldı (sürücü değişmedi); masaüstü
+  BundledSQLiteDriver kullanır ve gerçek v1.3 `yks.db` dosyasını değişmeden açar.
+- **DataStore KMP:** Android'de dosya yolları v1.x ile aynı (`datastore/<ad>.preferences_pb`)
+  — ayarlar, sayaç durumu ve şifreli anahtarlar güncellemeden sağ çıkar.
+- **Grafikler:** Android'de Vico 3.3.1 aynen; masaüstünde Canvas tabanlı çizimler
+  (Vico'nun çok platformlu artefaktları farklı bir 2.x API hattında — ikinci kütüphane
+  eklemek yerine spec'teki geri dönüş uygulandı).
+- `applicationId`, şema v5, yedek v5 ve gizlilik duruşu **değişmedi**.
+
+### Ertelendi (bilinçli)
+- Web (Kotlin/Wasm) hedefi · macOS notarizasyonu ve Windows imzalama · Keychain/DPAPI ·
+  Windows `.msi` yalnız CI'da üretilir (bu Mac'te jpackage `.dmg` üretir).
+
+### Doğrulama
+- **116/116 test** (75 v1.x + 41 yeni). Şema v5 KMP derleyicisince yeniden üretildi, commit'li
+  dosyayla bit-bit aynı.
+- **Android:** imzalı v2.0.0 (aynı sertifika `a20e34b8…`) emülatörde **v1.3.0 üzerine yerinde
+  güncellendi** — 17 deneme / 4 sohbet / 3 not / 2 profil ve DataStore dosyaları değişmedi; v1.3'te
+  kaydedilen anahtar "Bağlantıyı Sına"da gerçek api.openai.com'un 401 gövdesinde maskeli göründü
+  (**çözülüyor**); gerçek 1 dakikalık sayaç kesin alarm + ön plan servisiyle tamamlandı ve
+  bildirim geldi; açık + koyu tur; 0 çökme.
+- **Masaüstü:** `.dmg` üretildi ve paketlenmiş uygulama gerçek v1.3 `yks.db` ile açıldı;
+  çevrimdışı ekran turu (14 görüntü, geniş/dar, açık/koyu); Enter ile kayıt; "Bağlantıyı Sına"
+  gerçek Anthropic ve OpenAI uçlarına karşı; zamanlayıcı sözleşmesi.
+- **Çapraz platform:** Android yedeği → masaüstü içe aktarma (17/4/10/3 birebir); masaüstü
+  yedeği → Android'de SAF ile geri yükleme (17/59/4/10/1/3/2/12 birebir); CSV her iki yönde.
+- **Bulunan ve düzeltilen hatalar:** `application{}` kapsamında `collectAsStateWithLifecycle`
+  (LifecycleOwner yok) açılışta çöküyordu; test kaynak setinin ana kaynak setine
+  `dependsOn` etmesi expect/actual eşleşmesini bozuyordu; Room Gradle eklentisi KMP hedefleri
+  için şema dışa aktarmıyordu (KSP seçeneğine dönüldü).
+
 ## [1.3.0] — 2026-08-30 · "AI Koç: Oturum Paneli + Klasörler + Arama"
 
 **Şema v5 · Yedek formatı v5 (v1–v4 okunur) · 75 unit test**
@@ -147,6 +205,64 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) ruhundadır; sürümleme
 
 <a id="english"></a>
 # 🇬🇧 English
+
+## [2.0.0] — 2026-09-02 · "Multi-platform: macOS + Windows (Compose Multiplatform)"
+
+**Schema v5 (unchanged) · Backup format v5 (unchanged, cross-platform) · Android versionCode 8 · 116 tests**
+
+### Added
+- **Desktop app (macOS `.dmg`, Windows `.msi`):** the same screens; expanded/compact layout
+  follows window width (the tablet-rotation rule), minimum 900×600, size/position remembered,
+  light/dark follows the system; tray icon and system notifications.
+- **Kotlin Multiplatform structure:** `:shared` (commonMain contracts + the Room package;
+  `jvmMain` app code shared by Android and desktop; androidMain/desktopMain implementations),
+  `:androidApp` and `:desktopApp` thin shells. The 75 v1.x tests moved unchanged.
+- **Platform boundary** (docs/ARCHITECTURE §Platform boundary): `SecretStore`,
+  `TimerCompletionScheduler`, `PlatformFiles`, `ShareService`, `ImageDownscaler`,
+  `PreferencesStores`, `DatabaseFactory` contracts + `expect` Room constructor and chart
+  composables; exactly one Koin module per platform.
+- **Desktop key store:** AES-GCM file, per-installation random key, owner-only permissions
+  (weaker than Keystore — documented in the README; Keychain/DPAPI deferred).
+- **Desktop file dialogs** (FileKit 0.15.0), **sharing** = clipboard + save dialog, **timer
+  completion** = in-process scheduler + tray notification.
+- **Keyboard:** Enter saves the exam form; Esc closes dialogs; ⌘/Ctrl+N new chat.
+- **CI:** `release.yml` — on a tag push: tests → APK (signed when secrets exist, unsigned
+  otherwise) + `.dmg` (macOS) + `.msi` (Windows) matrix → GitHub Release.
+
+### Changed
+- **Koin 4.2.2 replaces Hilt** (Hilt is Android-only). The weekly auto-backup check keeps
+  working unchanged (on app open).
+- **Room KMP:** `@ConstructedBy` + the `SQLiteConnection` migration API — SQL strings are
+  byte-identical. Android keeps the framework SQLite (no driver change); desktop uses
+  BundledSQLiteDriver and opens a real v1.3 `yks.db` unchanged.
+- **DataStore KMP:** Android file paths are identical to v1.x (`datastore/<name>.preferences_pb`)
+  — settings, timer state and encrypted keys survive the update.
+- **Charts:** Vico 3.3.1 unchanged on Android; Canvas-drawn charts on desktop (Vico's
+  multiplatform artifacts are a different 2.x API line — the spec's fallback was applied rather
+  than adding a second chart library).
+- `applicationId`, schema v5, backup v5 and the privacy stance are **unchanged**.
+
+### Deferred (deliberately)
+- Web (Kotlin/Wasm) target · macOS notarization and Windows code signing · Keychain/DPAPI ·
+  the Windows `.msi` is produced only by CI (jpackage on this Mac builds the `.dmg`).
+
+### Verification
+- **116/116 tests** (75 v1.x + 41 new). Schema v5 regenerated by the KMP compiler,
+  byte-identical to the committed file.
+- **Android:** signed v2.0.0 (same certificate `a20e34b8…`) **updated in place over v1.3.0** on
+  the emulator — 17 exams / 4 threads / 3 notes / 2 profiles and all DataStore files untouched;
+  the key saved by v1.3 showed up masked in the real api.openai.com 401 body from "Test
+  Connection" (**still decrypts**); a real 1-minute timer completed through the exact alarm +
+  foreground service with its notification; light + dark tour; 0 crashes.
+- **Desktop:** `.dmg` built and the packaged app launched on a real v1.3 `yks.db`; offscreen
+  screen tour (14 renders, expanded/compact, light/dark); Enter-to-save; "Test Connection"
+  against the real Anthropic and OpenAI endpoints; scheduler contract.
+- **Cross-platform:** Android backup → desktop import (17/4/10/3 identical); desktop backup →
+  Android restore via SAF (17/59/4/10/1/3/2/12 identical); CSV in both directions.
+- **Bugs found and fixed:** `collectAsStateWithLifecycle` in `application{}` scope (no
+  LifecycleOwner) crashed at launch; a test source set `dependsOn` a main source set broke
+  expect/actual matching; the Room Gradle plugin exported no schema for KMP targets (back to
+  the KSP option).
 
 ## [1.3.0] — 2026-08-30 · "AI Coach: Session Pane + Folders + Search"
 

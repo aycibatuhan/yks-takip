@@ -7,7 +7,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.room)
 }
 
 kotlin {
@@ -98,9 +97,11 @@ kotlin {
     }
 }
 
-room {
+ksp {
     // Schemas are committed (shared/schemas) — every schema change stays a testable migration.
-    schemaDirectory("$projectDir/schemas")
+    // (The Room Gradle plugin exported nothing for these KMP targets — copyRoomSchemas NO-SOURCE —
+    // so the classic processor option is used; both targets write the identical file.)
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
