@@ -74,7 +74,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :desktopApp:${{ matrix.task }} --no-daemon
       - uses: actions/upload-artifact@v4
-        with: { name: desktop-${{ matrix.os }}, path: ${{ matrix.glob }} }
+        with:
+          name: desktop-${{ matrix.os }}
+          path: ${{ matrix.glob }}
 
   release:
     name: GitHub Release
