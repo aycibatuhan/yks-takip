@@ -1,5 +1,8 @@
 package com.yks2027.tracker.feature.importexport
 
+import com.yks2027.tracker.core.platform.ImageDownscaler
+import com.yks2027.tracker.core.platform.PickedFile
+import com.yks2027.tracker.core.platform.PlatformFiles
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -48,7 +51,6 @@ import com.yks2027.tracker.core.backup.CsvCodec
 import com.yks2027.tracker.core.database.ExamDao
 import com.yks2027.tracker.core.model.NetCalculator
 import com.yks2027.tracker.core.time.IstanbulClock
-import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -82,11 +84,13 @@ data class ImportHubState(
     val openPrefill: Boolean = false,
 )
 
-class ImportHubViewModel constructor(
+class ImportHubViewModel(
     private val examDao: ExamDao,
     private val extractor: ExamExtractor,
     private val prefillHolder: ExamPrefillHolder,
     private val clock: IstanbulClock,
+    private val files: PlatformFiles,
+    private val images: ImageDownscaler,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ImportHubState())
@@ -109,15 +113,16 @@ class ImportHubViewModel constructor(
 
     // --- CSV ---
 
-    fun loadCsv(uri: Uri) {
+    fun pickCsv() = pickThen(
+        listOf("csv", "txt"),
+        listOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream"),
+    ) { loadCsv(it) }
+
+    fun loadCsv(file: PickedFile) {
         viewModelScope.launch {
             _state.value = _state.value.copy(busy = true, busyLabel = "CSV okunuyor…", error = null)
             val result = runCatching {
-                val text = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use {
-                        it.readBytes().toString(Charsets.UTF_8)
-                    } ?: error("Dosya okunamadı")
-                }
+                val text = file.bytes.decodeToString()
                 val parsed = CsvCodec.parse(text)
                 val rows = parsed.exams.map { exam ->
                     val inDb = examDao.countByKindAndDay(exam.kind, exam.takenAtDay, excludeId = -1) > 0
@@ -180,16 +185,33 @@ class ImportHubViewModel constructor(
 
     // --- AI extraction ---
 
-    fun extractFromImage(uri: Uri) = extract("Görsel Claude'a gönderiliyor…") {
-        val bytes = readAll(uri)
-        val scaled = withContext(Dispatchers.Default) { downscaleJpeg(bytes) }
-        extractor.extract(ExtractSource.Image(scaled, isPng = false))
+    fun pickImageAndExtract() = pickThen(listOf("jpg", "jpeg", "png", "webp"), listOf("image/*")) { file ->
+        extract("Görsel Claude'a gönderiliyor…") {
+            // Longest side ≤ 1568px, JPEG 85 — the sweet spot for vision token cost.
+            val scaled = withContext(Dispatchers.Default) {
+                runCatching { images.toJpeg(file.bytes) }.getOrElse { throw AiException("Görsel çözümlenemedi.") }
+            }
+            extractor.extract(ExtractSource.Image(scaled, isPng = false))
+        }
     }
 
-    fun extractFromPdf(uri: Uri) = extract("PDF Claude'a gönderiliyor…") {
-        val bytes = readAll(uri)
-        if (bytes.size > 20 * 1024 * 1024) throw AiException("PDF çok büyük (>20MB) — tek sayfayı görsel olarak dene.")
-        extractor.extract(ExtractSource.Pdf(bytes))
+    fun pickPdfAndExtract() = pickThen(listOf("pdf"), listOf("application/pdf")) { file ->
+        extract("PDF Claude'a gönderiliyor…") {
+            if (file.bytes.size > 20 * 1024 * 1024) throw AiException("PDF çok büyük (>20MB) — tek sayfayı görsel olarak dene.")
+            extractor.extract(ExtractSource.Pdf(file.bytes))
+        }
+    }
+
+    /** Platform picker first; a cancelled dialog is not an error and touches no state. */
+    private fun pickThen(extensions: List<String>, mimeTypes: List<String>, then: (PickedFile) -> Unit) {
+        viewModelScope.launch {
+            val picked = runCatching { files.pickFile(extensions, mimeTypes) }
+                .getOrElse {
+                    _state.value = _state.value.copy(error = "Dosya seçilemedi: ${it.message?.take(200)}")
+                    null
+                } ?: return@launch
+            then(picked)
+        }
     }
 
     fun extractFromText(raw: String) = extract("Metin Claude'a gönderiliyor…") {
@@ -220,38 +242,6 @@ class ImportHubViewModel constructor(
         }
     }
 
-    private suspend fun readAll(uri: Uri): ByteArray = withContext(Dispatchers.IO) {
-        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: throw AiException("Dosya okunamadı.")
-    }
-
-    /** Longest side ≤ 1568px, JPEG 85 — the sweet spot for vision token cost. */
-    private fun downscaleJpeg(bytes: ByteArray): ByteArray {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        if (bounds.outWidth <= 0) throw AiException("Görsel çözümlenemedi.")
-        var sample = 1
-        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1568) sample *= 2
-        val bitmap = BitmapFactory.decodeByteArray(
-            bytes, 0, bytes.size,
-            BitmapFactory.Options().apply { inSampleSize = sample },
-        ) ?: throw AiException("Görsel çözümlenemedi.")
-        val longest = maxOf(bitmap.width, bitmap.height)
-        val finalBitmap = if (longest > 1568) {
-            val scale = 1568f / longest
-            Bitmap.createScaledBitmap(
-                bitmap,
-                (bitmap.width * scale).toInt().coerceAtLeast(1),
-                (bitmap.height * scale).toInt().coerceAtLeast(1),
-                true,
-            )
-        } else {
-            bitmap
-        }
-        val out = ByteArrayOutputStream()
-        finalBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
-        return out.toByteArray()
-    }
 }
 
 private val previewDate = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("tr"))
@@ -267,16 +257,6 @@ fun ImportHubScreen(
     val snackbarMessage by viewModel.snackbar.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var pasteDialogOpen by remember { mutableStateOf(false) }
-
-    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let(viewModel::loadCsv)
-    }
-    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let(viewModel::extractFromImage)
-    }
-    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let(viewModel::extractFromPdf)
-    }
 
     LaunchedEffect(snackbarMessage) {
         val msg = snackbarMessage ?: return@LaunchedEffect
@@ -374,7 +354,7 @@ fun ImportHubScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         OutlinedButton(onClick = {
-                            csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream"))
+                            viewModel.pickCsv()
                         }) { Text("CSV Dosyası Seç") }
                     }
                 }
@@ -397,11 +377,11 @@ fun ImportHubScreen(
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
-                            onClick = { imageLauncher.launch(arrayOf("image/*")) },
+                            onClick = { viewModel.pickImageAndExtract() },
                             enabled = !state.busy,
                         ) { Text("Görsel Seç") }
                         OutlinedButton(
-                            onClick = { pdfLauncher.launch(arrayOf("application/pdf")) },
+                            onClick = { viewModel.pickPdfAndExtract() },
                             enabled = !state.busy,
                         ) { Text("PDF Seç") }
                         OutlinedButton(

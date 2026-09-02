@@ -1,5 +1,6 @@
 package com.yks2027.tracker.feature.planner
 
+import com.yks2027.tracker.core.platform.ShareService
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -192,16 +193,12 @@ fun PastWeeksScreen(
 ) {
     val rows by viewModel.rows.collectAsStateWithLifecycle()
     val shareText by viewModel.shareText.collectAsStateWithLifecycle()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val share: ShareService = org.koin.compose.koinInject()
 
     androidx.compose.runtime.LaunchedEffect(shareText) {
         val text = shareText ?: return@LaunchedEffect
         viewModel.consumeShareText()
-        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(android.content.Intent.EXTRA_TEXT, text)
-        }
-        context.startActivity(android.content.Intent.createChooser(send, "Haftalık raporu paylaş"))
+        share.shareText(text, "Haftalık raporu paylaş")
     }
 
     Scaffold(

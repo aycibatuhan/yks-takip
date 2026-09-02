@@ -1,5 +1,7 @@
 package com.yks2027.tracker.feature.settings
 
+import com.yks2027.tracker.core.platform.PickedFile
+import com.yks2027.tracker.core.platform.PlatformFiles
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,9 +60,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class SettingsViewModel constructor(
+class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val backupManager: BackupManager,
+    private val files: PlatformFiles,
 ) : ViewModel() {
 
     val settings = settingsRepository.settings.stateIn(
@@ -119,19 +122,46 @@ class SettingsViewModel constructor(
     fun setDatesConfirmed(v: Boolean) = viewModelScope.launch { settingsRepository.setDatesConfirmed(v) }
     fun setThemeMode(v: ThemeMode) = viewModelScope.launch { settingsRepository.setThemeMode(v) }
 
-    fun exportTo(uri: Uri) {
+    /** v2.0 — platform save dialog (SAF on Android, native dialog on desktop). */
+    fun exportBackup() {
         viewModelScope.launch {
-            runCatching { backupManager.exportTo(uri) }
-                .onSuccess { _snackbar.value = "Yedek kaydedildi" }
+            runCatching { backupManager.exportViaDialog() }
+                .onSuccess { where -> if (where != null) _snackbar.value = "Yedek kaydedildi: $where" }
                 .onFailure { _snackbar.value = "Yedekleme başarısız: ${it.message}" }
         }
     }
 
-    fun importFrom(uri: Uri) {
+    /** Picked-but-not-yet-confirmed restore file; the confirm dialog reads this. */
+    private val _pendingImport = MutableStateFlow<PickedFile?>(null)
+    val pendingImport = _pendingImport.asStateFlow()
+
+    fun pickBackupToImport() {
         viewModelScope.launch {
-            runCatching { backupManager.importFrom(uri) }
+            runCatching { files.pickFile(listOf("json"), listOf("application/json")) }
+                .onSuccess { _pendingImport.value = it }
+                .onFailure { _snackbar.value = "Dosya seçilemedi: ${it.message}" }
+        }
+    }
+
+    fun dismissPendingImport() {
+        _pendingImport.value = null
+    }
+
+    fun importPending() {
+        val file = _pendingImport.value ?: return
+        _pendingImport.value = null
+        viewModelScope.launch {
+            runCatching { backupManager.importReplace(file.bytes.decodeToString()) }
                 .onSuccess { _snackbar.value = "Yedek geri yüklendi" }
                 .onFailure { _snackbar.value = "Geri yükleme başarısız: ${it.message}" }
+        }
+    }
+
+    fun pickBackupDir() {
+        viewModelScope.launch {
+            runCatching { files.pickDirectory() }
+                .onSuccess { location -> if (location != null) setBackupDir(location) }
+                .onFailure { _snackbar.value = "Klasör seçilemedi: ${it.message}" }
         }
     }
 
@@ -169,29 +199,7 @@ fun SettingsScreen(
 
     var editingDate by remember { mutableStateOf<String?>(null) } // "tyt" | "ayt"
     var editingTime by remember { mutableStateOf<String?>(null) } // "tyt" | "ayt"
-    var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json"),
-    ) { uri -> uri?.let(viewModel::exportTo) }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let { pendingImportUri = it } }
-
-    val treeLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree(),
-    ) { uri ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                    android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
-            viewModel.setBackupDir(it.toString())
-        }
-    }
+    val pendingImport by viewModel.pendingImport.collectAsStateWithLifecycle()
 
     LaunchedEffect(snackbarMessage) {
         val msg = snackbarMessage ?: return@LaunchedEffect
@@ -280,10 +288,10 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { exportLauncher.launch(viewModel.suggestedBackupName()) }) {
+                        Button(onClick = { viewModel.exportBackup() }) {
                             Text("Dışa Aktar")
                         }
-                        OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
+                        OutlinedButton(onClick = { viewModel.pickBackupToImport() }) {
                             Text("Geri Yükle")
                         }
                         OutlinedButton(onClick = onOpenImportHub) {
@@ -316,7 +324,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { treeLauncher.launch(null) }) {
+                        OutlinedButton(onClick = { viewModel.pickBackupDir() }) {
                             Text(if (settings.backupDirUri != null) "Klasörü Değiştir" else "Otomatik Yedek Klasörü Seç")
                         }
                         if (settings.backupDirUri != null) {
@@ -387,9 +395,9 @@ fun SettingsScreen(
         )
     }
 
-    pendingImportUri?.let { uri ->
+    pendingImport?.let { file ->
         AlertDialog(
-            onDismissRequest = { pendingImportUri = null },
+            onDismissRequest = viewModel::dismissPendingImport,
             title = { Text("Yedeği geri yükle") },
             text = {
                 Text(
@@ -398,13 +406,10 @@ fun SettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.importFrom(uri)
-                    pendingImportUri = null
-                }) { Text("Geri Yükle") }
+                TextButton(onClick = viewModel::importPending) { Text("Geri Yükle") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingImportUri = null }) { Text("Vazgeç") }
+                TextButton(onClick = viewModel::dismissPendingImport) { Text("Vazgeç") }
             },
         )
     }

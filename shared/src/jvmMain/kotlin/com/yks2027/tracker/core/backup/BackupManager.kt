@@ -20,7 +20,7 @@ import com.yks2027.tracker.core.model.PlannerCategory
 import com.yks2027.tracker.core.time.IstanbulClock
 import com.yks2027.tracker.core.time.dateOf
 import androidx.room.withTransaction
-import java.io.File
+import com.yks2027.tracker.core.platform.PlatformFiles
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -200,7 +200,8 @@ data class BackupMessage(
     @SerialName("created_at") val createdAt: Long,
 )
 
-class BackupManager constructor(
+class BackupManager(
+    private val files: PlatformFiles,
     private val db: YksDatabase,
     private val examDao: ExamDao,
     private val planDao: PlanDao,
@@ -318,12 +319,13 @@ class BackupManager constructor(
         return json.encodeToString(BackupDocument.serializer(), doc)
     }
 
-    suspend fun exportTo(uri: Uri) {
+    /** Save-dialog export. Returns the destination description, or null when the user cancelled. */
+    suspend fun exportViaDialog(): String? {
         val payload = exportJson()
-        context.contentResolver.openOutputStream(uri, "wt")?.use { out ->
-            out.write(payload.toByteArray(Charsets.UTF_8))
-        } ?: error("Dosya yazılamadı")
+        val where = files.saveFile(suggestedFileName(), "json", "application/json", payload.encodeToByteArray())
+            ?: return null
         settingsRepository.setLastBackupAt(clock.now().toEpochMilli())
+        return where
     }
 
     /**
@@ -339,32 +341,18 @@ class BackupManager constructor(
         val last = settings.lastBackupAt
         if (last != null && nowMs - last < AUTO_BACKUP_INTERVAL_MS) return
 
-        val tree = DocumentFile.fromTreeUri(context, Uri.parse(dirUri)) ?: return
-        if (!tree.canWrite()) return
         val name = suggestedFileName()
-        tree.findFile(name)?.delete() // same-day rerun replaces
-        val file = tree.createFile("application/json", name) ?: return
         val payload = exportJson()
-        context.contentResolver.openOutputStream(file.uri, "wt")?.use { out ->
-            out.write(payload.toByteArray(Charsets.UTF_8))
-        } ?: return
+        // writeToDirectory replaces a same-named file (same-day rerun) on every platform.
+        if (!files.writeToDirectory(dirUri, name, "application/json", payload.encodeToByteArray())) return
         settingsRepository.setLastBackupAt(nowMs)
 
-        tree.listFiles()
-            .filter { it.name?.startsWith("yks_backup_") == true && it.name?.endsWith(".json") == true }
-            .sortedByDescending { it.name } // ISO dates in names sort chronologically
-            .drop(KEEP_BACKUPS)
-            .forEach { it.delete() }
+        val entries = files.listDirectory(dirUri)
+        val stale = BackupRotation.staleBackupNames(entries.map { it.name }, KEEP_BACKUPS).toSet()
+        entries.filter { it.name in stale }.forEach { files.deleteFromDirectory(dirUri, it) }
     }
 
-    /** Full replace (PRD §9.4). Writes a pre-import safety snapshot to app files first. */
-    suspend fun importFrom(uri: Uri) {
-        val text = context.contentResolver.openInputStream(uri)?.use {
-            it.readBytes().toString(Charsets.UTF_8)
-        } ?: error("Dosya okunamadı")
-        importReplace(text)
-    }
-
+    /** Full replace (PRD §9.4). Writes a pre-import safety snapshot to app-private files first. */
     suspend fun importReplace(payload: String) {
         val doc = json.decodeFromString(BackupDocument.serializer(), payload)
         require(doc.format == BackupDocument.FORMAT) { "Bu dosya bir YKS yedeği değil" }
@@ -372,9 +360,7 @@ class BackupManager constructor(
             "Desteklenmeyen yedek sürümü: ${doc.schemaVersion} (bu uygulama en çok v${BackupDocument.SCHEMA_VERSION} okur)"
         }
 
-        runCatching {
-            File(context.filesDir, "pre_import_snapshot.json").writeText(exportJson())
-        }
+        runCatching { files.writePrivateFile("pre_import_snapshot.json", exportJson()) }
 
         db.withTransaction {
             chatDao.clearAll()
@@ -526,8 +512,22 @@ class BackupManager constructor(
         fun resolveRestoredFolderId(folderId: Long?, existingFolderIds: Set<Long>): Long? =
             folderId?.takeIf { it in existingFolderIds }
 
-        const val APP_VERSION = "1.3.0"
+        const val APP_VERSION = "2.0.0"
         const val AUTO_BACKUP_INTERVAL_MS = 7L * 86_400_000L
         const val KEEP_BACKUPS = 8
     }
+}
+
+/**
+ * v2.0 — pure auto-backup rotation shared by SAF (Android) and plain directories (desktop):
+ * keep the newest [keep] `yks_backup_YYYY-MM-DD.json` files (ISO dates sort chronologically
+ * by name) and report the rest for deletion. Unit-tested.
+ */
+object BackupRotation {
+    private val backupName = Regex("""yks_backup_\d{4}-\d{2}-\d{2}\.json""")
+
+    fun isBackupName(name: String): Boolean = backupName.matches(name)
+
+    fun staleBackupNames(names: List<String>, keep: Int): List<String> =
+        names.filter(::isBackupName).sortedDescending().drop(keep)
 }

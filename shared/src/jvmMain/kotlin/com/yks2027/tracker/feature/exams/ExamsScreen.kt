@@ -1,5 +1,7 @@
 package com.yks2027.tracker.feature.exams
 
+import com.yks2027.tracker.core.platform.PlatformFiles
+import com.yks2027.tracker.core.platform.ShareService
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -66,9 +68,11 @@ enum class ExamFilter(val label: String) {
     }
 }
 
-class ExamListViewModel constructor(
+class ExamListViewModel(
     private val examDao: ExamDao,
     private val clock: com.yks2027.tracker.core.time.IstanbulClock,
+    private val files: PlatformFiles,
+    private val share: ShareService,
 ) : ViewModel() {
 
     private val filter = MutableStateFlow(ExamFilter.ALL)
@@ -81,10 +85,6 @@ class ExamListViewModel constructor(
     private val _snackbar = MutableStateFlow<String?>(null)
     val snackbar = _snackbar.asStateFlow()
 
-    /** One-shot content:// uri for the share sheet (FileProvider over cacheDir). */
-    private val _shareUri = MutableStateFlow<android.net.Uri?>(null)
-    val shareUri = _shareUri.asStateFlow()
-
     private var lastDeleted: ExamWithSections? = null
 
     fun setFilter(f: ExamFilter) {
@@ -94,39 +94,26 @@ class ExamListViewModel constructor(
     fun suggestedCsvName(): String =
         "yks_denemeler_${com.yks2027.tracker.core.time.dateOf(clock.now())}.csv"
 
-    /** v1.2 — CSV dışa aktarma, SAF hedefine (documented format, see CsvCodec). */
-    fun exportCsvTo(uri: android.net.Uri) {
+    /** v1.2/v2.0 — CSV dışa aktarma via the platform save dialog (documented format, see CsvCodec). */
+    fun exportCsv() {
         viewModelScope.launch {
             runCatching {
                 val csv = com.yks2027.tracker.core.backup.CsvCodec.export(examDao.allOnce())
-                appContext.contentResolver.openOutputStream(uri, "wt")?.use { out ->
-                    out.write(csv.toByteArray(Charsets.UTF_8))
-                } ?: error("Dosya yazılamadı")
+                files.saveFile(suggestedCsvName(), "csv", "text/csv", csv.encodeToByteArray())
             }
-                .onSuccess { _snackbar.value = "CSV kaydedildi" }
+                .onSuccess { where -> if (where != null) _snackbar.value = "CSV kaydedildi: $where" }
                 .onFailure { _snackbar.value = "CSV dışa aktarılamadı: ${it.message?.take(120)}" }
         }
     }
 
-    /** v1.2 — CSV'yi paylaşım sayfasına ver (WhatsApp/Drive/e-posta…). */
-    fun prepareCsvShare() {
+    /** Android: share sheet (WhatsApp/Drive/e-posta…). Desktop: save dialog + clipboard. */
+    fun shareCsv() {
         viewModelScope.launch {
             runCatching {
                 val csv = com.yks2027.tracker.core.backup.CsvCodec.export(examDao.allOnce())
-                val dir = java.io.File(appContext.cacheDir, "share").apply { mkdirs() }
-                val file = java.io.File(dir, suggestedCsvName())
-                file.writeText(csv, Charsets.UTF_8)
-                androidx.core.content.FileProvider.getUriForFile(
-                    appContext, "com.yks2027.tracker.fileprovider", file,
-                )
-            }
-                .onSuccess { _shareUri.value = it }
-                .onFailure { _snackbar.value = "CSV hazırlanamadı: ${it.message?.take(120)}" }
+                share.shareFile(suggestedCsvName(), "text/csv", csv.encodeToByteArray(), "Deneme CSV'sini paylaş")
+            }.onFailure { _snackbar.value = "CSV hazırlanamadı: ${it.message?.take(120)}" }
         }
-    }
-
-    fun consumeShareUri() {
-        _shareUri.value = null
     }
 
     fun delete(item: ExamWithSections) {
@@ -165,27 +152,9 @@ fun ExamsScreen(
     val exams by viewModel.exams.collectAsStateWithLifecycle()
     val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
     val snackbarMessage by viewModel.snackbar.collectAsStateWithLifecycle()
-    val shareUri by viewModel.shareUri.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var tab by remember { mutableIntStateOf(0) }
     var exportMenuOpen by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-
-    val csvSaveLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv"),
-    ) { uri -> uri?.let(viewModel::exportCsvTo) }
-
-    LaunchedEffect(shareUri) {
-        val uri = shareUri ?: return@LaunchedEffect
-        viewModel.consumeShareUri()
-        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "text/csv"
-            putExtra(android.content.Intent.EXTRA_STREAM, uri)
-            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        context.startActivity(android.content.Intent.createChooser(send, "Deneme CSV'sini paylaş"))
-    }
-
     LaunchedEffect(snackbarMessage) {
         val msg = snackbarMessage ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(msg, actionLabel = "Geri Al")
@@ -210,14 +179,14 @@ fun ExamsScreen(
                                 text = { Text("CSV dışa aktar…") },
                                 onClick = {
                                     exportMenuOpen = false
-                                    csvSaveLauncher.launch(viewModel.suggestedCsvName())
+                                    viewModel.exportCsv()
                                 },
                             )
                             androidx.compose.material3.DropdownMenuItem(
                                 text = { Text("CSV paylaş") },
                                 onClick = {
                                     exportMenuOpen = false
-                                    viewModel.prepareCsvShare()
+                                    viewModel.shareCsv()
                                 },
                             )
                             androidx.compose.material3.DropdownMenuItem(
