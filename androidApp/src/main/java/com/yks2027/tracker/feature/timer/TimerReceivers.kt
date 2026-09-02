@@ -11,19 +11,18 @@ import com.yks2027.tracker.NotificationChannels
 import com.yks2027.tracker.R
 import com.yks2027.tracker.core.datastore.TimerPhase
 import com.yks2027.tracker.core.datastore.TimerStateRepository
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /** PRD §7.2 layer 3 — fires at end_at even if the process was killed or the device dozed. */
-@AndroidEntryPoint
-class TimerAlarmReceiver : BroadcastReceiver() {
+class TimerAlarmReceiver : BroadcastReceiver(), KoinComponent {
 
-    @Inject lateinit var timerController: TimerController
-    @Inject lateinit var timerStateRepository: TimerStateRepository
+    private val timerController: TimerController by inject()
+    private val timerStateRepository: TimerStateRepository by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
@@ -49,12 +48,11 @@ class TimerAlarmReceiver : BroadcastReceiver() {
  * alarm when end_at is still ahead (no FGS from boot — background-start restrictions),
  * or finalize immediately when the device was off past end_at.
  */
-@AndroidEntryPoint
-class BootReceiver : BroadcastReceiver() {
+class BootReceiver : BroadcastReceiver(), KoinComponent {
 
-    @Inject lateinit var timerStateRepository: TimerStateRepository
-    @Inject lateinit var timerController: TimerController
-    @Inject lateinit var alarmScheduler: AlarmScheduler
+    private val timerStateRepository: TimerStateRepository by inject()
+    private val timerController: TimerController by inject()
+    private val alarmScheduler: AlarmScheduler by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return

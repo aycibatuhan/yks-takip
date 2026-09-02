@@ -18,10 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yks2027.tracker.core.datastore.SettingsRepository
 import com.yks2027.tracker.core.time.ISTANBUL
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.android.EntryPointAccessors
-import dagger.hilt.components.SingletonComponent
+import org.koin.core.context.GlobalContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -33,17 +30,9 @@ import kotlinx.coroutines.flow.first
  */
 class CountdownWidget : GlanceAppWidget() {
 
-    @EntryPoint
-    @InstallIn(SingletonComponent::class)
-    interface WidgetEntryPoint {
-        fun settingsRepository(): SettingsRepository
-    }
-
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val settings = EntryPointAccessors
-            .fromApplication(context, WidgetEntryPoint::class.java)
-            .settingsRepository()
-            .settings.first()
+        // Same process as the app → the Koin singleton (one DataStore per file).
+        val settings = GlobalContext.get().get<SettingsRepository>().settings.first()
         val today = LocalDate.now(ISTANBUL)
         val examDay = Instant.ofEpochMilli(settings.tytExamAt).atZone(ISTANBUL).toLocalDate()
         val days = ChronoUnit.DAYS.between(today, examDay).coerceAtLeast(0)

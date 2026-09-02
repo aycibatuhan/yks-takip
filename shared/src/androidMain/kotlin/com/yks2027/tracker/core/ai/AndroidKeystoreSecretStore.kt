@@ -1,6 +1,5 @@
 package com.yks2027.tracker.core.ai
 
-import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -8,31 +7,26 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.yks2027.tracker.core.platform.SecretStore
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
  * PRD §8 — the AI API key lives encrypted at rest (Android Keystore AES-GCM; the key
- * material never leaves the Keystore), in its own store, and is deliberately EXCLUDED
- * from JSON backups (re-enter after an import). Jetpack security-crypto was deprecated,
- * hence this small direct-Keystore implementation.
+ * material never leaves the Keystore), in its own `ai_secrets` store, and is deliberately
+ * EXCLUDED from JSON backups (re-enter after an import).
+ *
+ * v2.0: the v1.x AiSecretsRepository behind the shared SecretStore contract. Key alias,
+ * transformation, IV layout and DataStore keys are UNCHANGED so keys saved by v1.x decrypt
+ * after the in-place update.
  */
-private val Context.aiSecretsStore: DataStore<Preferences> by preferencesDataStore(name = "ai_secrets")
-
-@Singleton
-class AiSecretsRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
-) {
+class AndroidKeystoreSecretStore(private val store: DataStore<Preferences>) : SecretStore {
 
     private object Keys {
         /** Legacy v1.0/v1.1 single-slot key; migrated into a per-profile entry once. */
@@ -42,35 +36,32 @@ class AiSecretsRepository @Inject constructor(
             stringPreferencesKey("api_key_encrypted_$profileId")
     }
 
-    /** ids of profiles that currently have a stored key (values stay encrypted). */
-    val profileIdsWithKey: Flow<Set<Long>> = context.aiSecretsStore.data.map { prefs ->
+    override val profileIdsWithKey: Flow<Set<Long>> = store.data.map { prefs ->
         prefs.asMap().keys.mapNotNull { key ->
             key.name.removePrefix("api_key_encrypted_").takeIf { it != key.name }?.toLongOrNull()
         }.toSet()
     }
 
-    suspend fun getKey(profileId: Long): String? =
-        context.aiSecretsStore.data.first()[Keys.forProfile(profileId)]?.let { stored ->
+    override suspend fun getKey(profileId: Long): String? =
+        store.data.first()[Keys.forProfile(profileId)]?.let { stored ->
             runCatching { decrypt(stored) }.getOrNull()
         }
 
-    suspend fun setKey(profileId: Long, apiKey: String) {
+    override suspend fun setKey(profileId: Long, apiKey: String) {
         val encrypted = encrypt(apiKey.trim())
-        context.aiSecretsStore.edit { it[Keys.forProfile(profileId)] = encrypted }
+        store.edit { it[Keys.forProfile(profileId)] = encrypted }
     }
 
-    suspend fun clearKey(profileId: Long) {
-        context.aiSecretsStore.edit { it.remove(Keys.forProfile(profileId)) }
+    override suspend fun clearKey(profileId: Long) {
+        store.edit { it.remove(Keys.forProfile(profileId)) }
     }
 
-    // --- v1.2 migration: move the single legacy key onto a profile id ---
-
-    suspend fun hasLegacyKey(): Boolean =
-        context.aiSecretsStore.data.first()[Keys.LEGACY_API_KEY] != null
+    override suspend fun hasLegacyKey(): Boolean =
+        store.data.first()[Keys.LEGACY_API_KEY] != null
 
     /** Re-keys the stored ciphertext to the profile entry without ever decrypting to UI. */
-    suspend fun migrateLegacyKeyTo(profileId: Long) {
-        context.aiSecretsStore.edit { prefs ->
+    override suspend fun migrateLegacyKeyTo(profileId: Long) {
+        store.edit { prefs ->
             prefs[Keys.LEGACY_API_KEY]?.let { stored ->
                 prefs[Keys.forProfile(profileId)] = stored
                 prefs.remove(Keys.LEGACY_API_KEY)

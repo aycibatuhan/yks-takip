@@ -4,12 +4,22 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import dagger.hilt.android.HiltAndroidApp
+import com.yks2027.tracker.core.di.sharedModules
+import com.yks2027.tracker.platform.androidPlatformModule
+import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
+import org.koin.core.context.startKoin
+import org.koin.core.logger.Level
 
-@HiltAndroidApp
 class YksApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        // v2.0 — Koin replaces Hilt: shared modules + the Android platform module.
+        startKoin {
+            androidLogger(Level.ERROR)
+            androidContext(this@YksApp)
+            modules(sharedModules + androidPlatformModule)
+        }
         NotificationChannels.ensure(this)
     }
 }
