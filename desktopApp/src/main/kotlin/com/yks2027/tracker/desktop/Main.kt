@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -56,7 +57,8 @@ fun main() {
         )
         val trayState = rememberTrayState()
         notifier.trayState = trayState
-        val running by notifier.runningLabel.collectAsStateWithLifecycle()
+        // application{} has no LifecycleOwner (only Window content does) → plain collectAsState here.
+        val running by notifier.runningLabel.collectAsState()
 
         Tray(
             state = trayState,

@@ -54,7 +54,6 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.room.runtime)
-            implementation(libs.sqlite.bundled)
             implementation(libs.datastore.preferences.core)
             implementation(libs.okio)
             implementation(project.dependencies.platform(libs.koin.bom))
@@ -82,8 +81,15 @@ kotlin {
             implementation(libs.vico.compose.m3)
             implementation(libs.koin.android)
         }
+        desktopTest.dependencies {
+            // Offscreen UI rendering for the desktop tour + keyboard-flow tests (no screen permission needed).
+            implementation(compose.desktop.uiTestJUnit4)
+            implementation(compose.desktop.currentOs)
+        }
         desktopMain.dependencies {
             implementation(compose.desktop.common)
+            // Desktop opens yks.db with BundledSQLiteDriver; Android keeps the framework SQLite.
+            implementation(libs.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.swing)
             // Native file dialogs (spec: FileKit — verified maintained, 0.15.0 on Maven Central).
             implementation(libs.filekit.core)
