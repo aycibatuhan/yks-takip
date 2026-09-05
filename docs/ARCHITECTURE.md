@@ -45,7 +45,7 @@ com.yks2027.tracker
 └── widget          Glance geri sayım widget'ı
 ```
 
-## 3. Veri modeli (şema v5 — 13 tablo)
+## 3. Veri modeli (şema v6 — 13 tablo)
 
 | Tablo | Anahtar noktalar |
 |---|---|
@@ -53,7 +53,7 @@ com.yks2027.tracker
 | `exam_sections` | Deneme başına ders satırı: `subject` TEXT enum (8 ders), `question_count` **saklanır** (branş denemelerinde yayınevine göre değişir), ham `correct_count`/`wrong_count`. Benzersiz `(exam_id, subject)`; FK CASCADE |
 | `exam_topic_marks` | Konu işareti: `topic_id` (gömülü katalog), `wrong_count`, `blank_count`, `error_type` (Bilgi/İşlem/Dikkat/Süre); FK CASCADE |
 | `exam_topic_notes` | Deneme+ders başına serbest not; FK CASCADE |
-| `topic_status` | Konu başına `studied`/`practiced`/`reviewed` bayrakları (PK `topic_id`) |
+| `topic_status` | Konu başına `studied`/`practiced`/`reviewed` bayrakları (PK `topic_id`); v2.1: `needs_review`, `confidence` (0 yok / 1 zayıf / 2 orta / 3 iyi), `last_studied_at?` |
 | `plan_weeks` | PK `week_start_day` = Pazartesi epoch-gün (Istanbul) — hafta anahtarı, örtük arşivin kendisi |
 | `plan_tasks` | `day_of_week` ISO 1–7, sabit `category` enum, `target_questions` + **`solved_questions`** (dürüst metrik), `order_index`; FK CASCADE |
 | `focus_sessions` | `active_ms` **saklanır** (duraklatma geçmişi geri kurulamaz), `planned_min` (kronometrede 0), `category?`, `task_id?` FK **SET NULL** |
@@ -82,6 +82,7 @@ depoda yaşar (§7).
 | v2 → v3 | v1.1.0 | `exam_topic_marks`, `exam_topic_notes`, `topic_status` |
 | v3 → v4 | v1.2.0 | `ai_profiles`, `notes` |
 | v4 → v5 | v1.3.0 | `chat_folders` + `chat_threads.pinned/folder_id` |
+| v5 → v6 | v2.1.0 | `topic_status.needs_review / confidence / last_studied_at` (ALTER TABLE, ekleyerek) |
 
 Her migration elle yazılır ve **iki bağımsız yöntemle** doğrulanır:
 
@@ -202,9 +203,13 @@ AiProfilesRepository (Room meta) + AiSecretsRepository (şifreli anahtarlar)
   `HTTP <kod>` + sunucu gövdesinden ≤200 karakter. 401 (anahtar), 404 (uç/model) ve
   ağ hataları (istisna sınıfı + mesaj) ayırt edilir; "Bağlantıyı Sına" bu haritanın
   vitrini olarak gerçek `models` ucuna gider.
-- **Bağlam enjeksiyonu:** koç sistem istemi + kompakt istatistik özeti (son netler,
-  plan tamamlama, haftalık çalışma dk, zayıf konular) — ayarlardan kapatılabilir.
-  `stop_reason: refusal` yakalanır ve nazikçe gösterilir.
+- **Bağlam enjeksiyonu (v2.1 genişledi):** koç sistem istemi + `StatsContextBuilder` —
+  sınav tarihleri, netler, bu haftanın programı gün gün (`PlanContextFormatter`, saf),
+  gün gün odak dakikaları, konu takibi (`TopicContextFormatter`, saf), yanlış konular, not
+  başlıkları; 7 000 karakter sınırı; ayarlardan kapatılabilir. **Web araması:** Claude
+  profillerinde `ai_web_search` açıkken `WebSearchTool20260318` (maxUses 5) isteğe eklenir;
+  arama Anthropic tarafında koşar, metin deltaları aynen akar. `stop_reason: refusal`
+  yakalanır ve nazikçe gösterilir.
 
 ## 8. Oturum paneli (v1.3) — sorgu + saf mantık
 
@@ -349,7 +354,7 @@ com.yks2027.tracker
 └── widget          Glance countdown widget
 ```
 
-## 3. Data model (schema v5 — 13 tables)
+## 3. Data model (schema v6 — 13 tables)
 
 | Table | Key points |
 |---|---|
@@ -357,7 +362,7 @@ com.yks2027.tracker
 | `exam_sections` | One row per subject: `subject` TEXT enum (8 subjects), `question_count` **stored** (publisher-variable for branş mocks), raw `correct_count`/`wrong_count`. Unique `(exam_id, subject)`; FK CASCADE |
 | `exam_topic_marks` | Topic mark: `topic_id` (embedded catalog), `wrong_count`, `blank_count`, `error_type` (knowledge/calculation/attention/time); FK CASCADE |
 | `exam_topic_notes` | Free-text note per exam+subject; FK CASCADE |
-| `topic_status` | Per-topic `studied`/`practiced`/`reviewed` flags (PK `topic_id`) |
+| `topic_status` | Per-topic `studied`/`practiced`/`reviewed` flags (PK `topic_id`); v2.1: `needs_review`, `confidence` (0 unset / 1 weak / 2 ok / 3 good), `last_studied_at?` |
 | `plan_weeks` | PK `week_start_day` = Monday epoch-day (Istanbul) — the week key *is* the implicit archive |
 | `plan_tasks` | `day_of_week` ISO 1–7, fixed `category` enum, `target_questions` + **`solved_questions`** (the honest metric), `order_index`; FK CASCADE |
 | `focus_sessions` | `active_ms` **stored** (pause history is not reconstructable), `planned_min` (0 for stopwatch), `category?`, `task_id?` FK **SET NULL** |
@@ -386,6 +391,7 @@ encrypted store (§7).
 | v2 → v3 | v1.1.0 | `exam_topic_marks`, `exam_topic_notes`, `topic_status` |
 | v3 → v4 | v1.2.0 | `ai_profiles`, `notes` |
 | v4 → v5 | v1.3.0 | `chat_folders` + `chat_threads.pinned/folder_id` |
+| v5 → v6 | v2.1.0 | `topic_status.needs_review / confidence / last_studied_at` (additive ALTER TABLE) |
 
 Every migration is hand-written and verified by **two independent methods**:
 
@@ -510,9 +516,13 @@ AiProfilesRepository (Room metadata) + AiSecretsRepository (encrypted keys)
   404 (endpoint/model), and network failures (exception class + message) are
   distinguished; "Test Connection" showcases this map against the real `models`
   endpoint.
-- **Context injection:** the coach system prompt + a compact stats summary (recent
-  nets, plan completion, weekly study minutes, weak topics) — toggleable in
-  Settings. `stop_reason: refusal` is caught and surfaced gently.
+- **Context injection (expanded in v2.1):** the coach system prompt + `StatsContextBuilder`
+  — exam dates, nets, this week's program day by day (`PlanContextFormatter`, pure), daily
+  study minutes, the topic tracker (`TopicContextFormatter`, pure), exam-marked weak topics,
+  note titles; capped at 7,000 characters; toggleable in Settings. **Web search:** on Claude
+  profiles with `ai_web_search` on, `WebSearchTool20260318` (maxUses 5) is attached; the
+  search runs on Anthropic's side and text deltas stream unchanged. `stop_reason: refusal`
+  is caught and surfaced gently.
 
 ## 8. Session pane (v1.3) — query + pure logic
 

@@ -4,6 +4,7 @@ import com.anthropic.client.AnthropicClient
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.errors.AnthropicServiceException
 import com.anthropic.models.messages.MessageCreateParams
+import com.anthropic.models.messages.WebSearchTool20260318
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -31,27 +32,47 @@ class AnthropicProvider {
             .apply { baseUrl?.takeIf { it.isNotBlank() }?.let { baseUrl(it.trimEnd('/')) } }
             .build()
 
+    /**
+     * v2.1 — request assembly, testable without a network. [webSearch] attaches Anthropic's
+     * server-side web search tool (the search runs on Anthropic's side; the app still talks
+     * only to the configured AI endpoint, so the privacy stance holds). Text deltas stream
+     * exactly as before; search/citation blocks are simply not rendered.
+     */
+    internal fun buildParams(
+        model: String,
+        system: String,
+        history: List<AiChatMessage>,
+        webSearch: Boolean,
+    ): MessageCreateParams {
+        val builder = MessageCreateParams.builder()
+            .model(model)
+            .maxTokens(2048L)
+            .system(system)
+        if (webSearch) {
+            builder.addTool(WebSearchTool20260318.builder().maxUses(WEB_SEARCH_MAX_USES).build())
+        }
+        history.forEach { message ->
+            when (message.role) {
+                AiChatMessage.ROLE_ASSISTANT -> builder.addAssistantMessage(message.content)
+                else -> builder.addUserMessage(message.content)
+            }
+        }
+        return builder.build()
+    }
+
     fun streamChat(
         apiKey: String,
         baseUrl: String?,
         model: String,
         system: String,
         history: List<AiChatMessage>,
+        webSearch: Boolean = false,
     ): Flow<String> = flow {
         val client = client(apiKey, baseUrl)
         try {
-            val builder = MessageCreateParams.builder()
-                .model(model)
-                .maxTokens(2048L)
-                .system(system)
-            history.forEach { message ->
-                when (message.role) {
-                    AiChatMessage.ROLE_ASSISTANT -> builder.addAssistantMessage(message.content)
-                    else -> builder.addUserMessage(message.content)
-                }
-            }
+            val params = buildParams(model, system, history, webSearch)
             var refused = false
-            client.messages().createStreaming(builder.build()).use { response ->
+            client.messages().createStreaming(params).use { response ->
                 val events = response.stream().iterator()
                 while (events.hasNext()) {
                     val event = events.next()
@@ -132,5 +153,10 @@ class AnthropicProvider {
                 AiException("Claude isteği başarısız: ${e.message?.take(200) ?: e.javaClass.simpleName}", e)
             }
         }
+    }
+
+    companion object {
+        /** Cap per reply — each search is billed by the provider. */
+        const val WEB_SEARCH_MAX_USES = 5L
     }
 }

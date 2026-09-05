@@ -29,7 +29,7 @@ import androidx.sqlite.execSQL
         AiProfileEntity::class,
         NoteEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @ConstructedBy(YksDatabaseConstructor::class)
@@ -43,6 +43,15 @@ abstract class YksDatabase : RoomDatabase() {
     abstract fun noteDao(): NoteDao
 
     companion object {
+        /** v2.1 — schema v6: three additive columns on topic_status (no table rebuild). */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE `topic_status` ADD COLUMN `needs_review` INTEGER NOT NULL DEFAULT 0")
+                connection.execSQL("ALTER TABLE `topic_status` ADD COLUMN `confidence` INTEGER NOT NULL DEFAULT 0")
+                connection.execSQL("ALTER TABLE `topic_status` ADD COLUMN `last_studied_at` INTEGER")
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(connection: SQLiteConnection) {
                 connection.execSQL(

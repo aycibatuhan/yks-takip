@@ -28,6 +28,8 @@ data class Settings(
     // remember WHICH profile is active. Keys are in SecretStore, per profile.
     val activeAiProfileId: Long?,
     val aiShareStats: Boolean,
+    /** v2.1 — let the coach use the provider's server-side web search (Anthropic profiles only). */
+    val aiWebSearch: Boolean,
     // Timer auto-break suggestion length in minutes; 0 = off (PRD §12 M3).
     val autoBreakMin: Int,
 ) {
@@ -54,6 +56,7 @@ class SettingsRepository(private val settingsStore: DataStore<Preferences>) {
         val BACKUP_DIR_URI = stringPreferencesKey("backup_dir_uri")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
         val AI_SHARE_STATS = booleanPreferencesKey("ai_share_stats")
+        val AI_WEB_SEARCH = booleanPreferencesKey("ai_web_search")
         val AUTO_BREAK_MIN = intPreferencesKey("auto_break_min")
         // v1.2 profiles
         val ACTIVE_AI_PROFILE_ID = longPreferencesKey("active_ai_profile_id")
@@ -75,6 +78,7 @@ class SettingsRepository(private val settingsStore: DataStore<Preferences>) {
             lastBackupAt = p[Keys.LAST_BACKUP_AT],
             activeAiProfileId = p[Keys.ACTIVE_AI_PROFILE_ID],
             aiShareStats = p[Keys.AI_SHARE_STATS] ?: true,
+            aiWebSearch = p[Keys.AI_WEB_SEARCH] ?: false,
             autoBreakMin = p[Keys.AUTO_BREAK_MIN] ?: 0,
         )
     }
@@ -90,6 +94,7 @@ class SettingsRepository(private val settingsStore: DataStore<Preferences>) {
     }
 
     suspend fun setAiShareStats(v: Boolean) = settingsStore.edit { it[Keys.AI_SHARE_STATS] = v }
+    suspend fun setAiWebSearch(v: Boolean) = settingsStore.edit { it[Keys.AI_WEB_SEARCH] = v }
     suspend fun setAutoBreakMin(v: Int) = settingsStore.edit { it[Keys.AUTO_BREAK_MIN] = v.coerceIn(0, 60) }
 
     suspend fun setActiveAiProfileId(id: Long?) = settingsStore.edit { prefs ->

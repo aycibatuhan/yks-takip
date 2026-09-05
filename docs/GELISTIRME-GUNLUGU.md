@@ -182,3 +182,18 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
 > **Bilinçli sınırlar:** Windows `.msi` bu Mac'te üretilemez (jpackage host-OS) — CI matrisi üretir;
 > masaüstü paketleri imzasız; canlı pencere yeniden boyutlandırma ekran görüntüsüyle belgelenemedi (izin yok),
 > aynı `currentWindowAdaptiveInfo()` yolu iki genişlikte çevrimdışı doğrulandı.
+
+---
+
+## v2.1.0 doğrulama kaydı (2026-09-05, "Kardeş geri bildirimi")
+
+> ✅ **127/127 test** (11 yeni). Şema v6: `MIGRATION_5_6`, emülatörden çekilen gerçek v5 `yks.db`'ye
+> `sqlite3` ile uygulanıp üretilen `6.json` ile kolon kolon (ad/tip/NOT NULL/varsayılan) karşılaştırıldı —
+> birebir; diğer 12 tablonun `createSql`'i 5.json ile aynı; 23 konu satırı korundu.
+> **Android:** imzalı v2.1.0 (aynı sertifika) emülatörde v2.0.0 üzerine yerinde güncellendi; canlı
+> migration 5→6 sonrası veriler yerinde; Konular'da "Tekrar gerekli" bayrağı → DB `needs_review=1`,
+> "Tekrar gerekenler" filtresi; kronometre 65 sn çalıştırılıp SIFIRLA → `focus_sessions` değişmedi;
+> Ana Sayfa "Bugünün planı", Planlayıcı gün gün satırı, Ayarlar web-arama anahtarı ekran görüntülerinde.
+> **Masaüstü:** paketlenmiş uygulama aynı v5 dosyasını açıp 6'ya taşıdı (günlük temiz); çevrimdışı tur
+> yeniden üretildi. **Sınır:** web araması gerçek Anthropic anahtarıyla uçtan uca denenmedi —
+> istek gövdesine aracın eklendiği birim testle doğrulandı.

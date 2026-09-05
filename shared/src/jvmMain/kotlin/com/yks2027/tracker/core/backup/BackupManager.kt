@@ -61,7 +61,7 @@ data class BackupDocument(
          * v5 (v1.3): chat_folders + per-thread pinned/folder_id.
          * Older files import fine (defaults).
          */
-        const val SCHEMA_VERSION = 5
+        const val SCHEMA_VERSION = 6
     }
 }
 
@@ -97,6 +97,10 @@ data class BackupTopicStatus(
     val practiced: Boolean,
     val reviewed: Boolean,
     @SerialName("updated_at") val updatedAt: Long,
+    // v2.1 (format v6) — absent in older files → defaults.
+    @SerialName("needs_review") val needsReview: Boolean = false,
+    val confidence: Int = 0,
+    @SerialName("last_studied_at") val lastStudiedAt: Long? = null,
 )
 
 @Serializable
@@ -236,7 +240,7 @@ class BackupManager(
                 activeAiProfileId = settings.activeAiProfileId,
             ),
             topicStatuses = topicDao.statusesOnce().map { s ->
-                BackupTopicStatus(s.topicId, s.studied, s.practiced, s.reviewed, s.updatedAt)
+                BackupTopicStatus(s.topicId, s.studied, s.practiced, s.reviewed, s.updatedAt, s.needsReview, s.confidence, s.lastStudiedAt)
             },
             notes = noteDao.allOnce().map { n ->
                 BackupNote(n.title, n.body, n.createdAt, n.updatedAt)
@@ -453,6 +457,7 @@ class BackupManager(
                     com.yks2027.tracker.core.database.TopicStatusEntity(
                         topicId = s.topicId, studied = s.studied,
                         practiced = s.practiced, reviewed = s.reviewed, updatedAt = s.updatedAt,
+                        needsReview = s.needsReview, confidence = s.confidence, lastStudiedAt = s.lastStudiedAt,
                     ),
                 )
             }
@@ -516,7 +521,7 @@ class BackupManager(
         fun resolveRestoredFolderId(folderId: Long?, existingFolderIds: Set<Long>): Long? =
             folderId?.takeIf { it in existingFolderIds }
 
-        const val APP_VERSION = "2.0.0"
+        const val APP_VERSION = "2.1.0"
         /** Exposed for the cross-platform round-trip test. */
         const val FORMAT_FOR_TESTS = BackupDocument.FORMAT
         const val AUTO_BACKUP_INTERVAL_MS = 7L * 86_400_000L

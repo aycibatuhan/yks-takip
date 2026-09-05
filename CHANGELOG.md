@@ -12,6 +12,43 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) ruhundadır; sürümleme
 <a id="turkce"></a>
 # 🇹🇷 Türkçe
 
+## [2.1.0] — 2026-09-05 · "Kardeş geri bildirimi: günlük odak, konu takibi, her şeyi gören koç"
+
+**Şema v6 (ekleyerek: `topic_status` +3 kolon) · Yedek formatı v6 (v1–v5 okunur) · Android versionCode 9 · 127 test**
+
+### Eklendi
+- **Sayaç:** SIFIRLA artık hiçbir şey kaydetmez — yalnız biten geri sayımlar ve BİTİR ile
+  kaydedilen kronometreler sayılır. Liste "Bugünkü oturumlar" oldu: yalnız bugünün
+  tamamlanmış oturumları görünür ("yarım" etiketi kalktı; geçmiş, haftalık istatistikler
+  için veritabanında durur).
+- **Ana Sayfa:** plan halkası **bugünü** gösterir ("Bugünün planı 2/6 görev"); haftanın
+  toplamı küçük not olarak kalır ("Hafta: 15/21").
+- **Planlayıcı:** "Bu hafta çalışma" korunarak altına **gün gün çalışma süresi** satırı
+  (Pzt→Paz, bugün vurgulu).
+- **Konular:** her konuda **Tekrar gerekli** bayrağı (kırmızı; "Tekrar ettim" işaretlenince
+  kalkar), öz-değerlendirme **Zayıf / Orta / İyi**, "Çalıştım / Soru çözdüm / Tekrar ettim"
+  adları; üstte filtreler **Tümü · Tekrar gerekenler · Çalışılmamış · Zayıf** (zayıf = öz
+  değerlendirme VEYA denemedeki yanlış işareti); başlıkta "Tekrar gereken: N konu".
+- **AI Koç artık uygulamanın tamamını görür** (istatistik paylaşımı açıkken): sınav
+  tarihleri ve kalan gün, netler, **bu haftanın programı gün gün** ([x]/[ ] görev, hedef ve
+  çözülen soru, BUGÜN işareti), gün gün odak dakikaları + kategori toplamları + son 7 gün,
+  konu takibi (tekrar gerekenler, zayıf/orta/iyi), denemelerdeki yanlış konular ve not
+  başlıkları. Bağlam sınırı 7 000 karakter.
+- **Koç web'de arayabilsin** anahtarı (Ayarlar → AI Koç): Claude profillerinde Anthropic'in
+  sunucu taraflı web arama aracı eklenir (yanıt başına en çok 5 arama; arama sağlayıcı
+  tarafında yapılır, uygulama yine yalnızca AI ucuna bağlanır). OpenAI-uyumlu profillerde
+  anahtar etkisizdir (notu arayüzde).
+
+### Doğrulama
+- 127/127 test (11 yeni: gün kovaları, konu filtreleri, koç bağlam biçimleyicileri, web arama
+  parametresi, "SIFIRLA kaydetmez" sözleşmesi). MIGRATION_5_6, gerçek v5 veritabanına
+  uygulanıp üretilen 6.json ile kolon kolon karşılaştırıldı; diğer 12 tablo bit-bit aynı.
+- Emülatörde v2.0.0 → v2.1.0 yerinde yükseltme (23 konu satırı yeni kolonlarla korundu);
+  "Tekrar gerekli" bayrağı ve filtre cihazda; kronometre 65 sn sonra SIFIRLA → oturum
+  yazılmadı; masaüstü paketi aynı v5 dosyasını açıp 6'ya taşıdı.
+- Web araması gerçek bir Anthropic anahtarıyla uçtan uca denenmedi (elde test anahtarı
+  yok); istek gövdesine aracın eklendiği birim testle doğrulandı.
+
 ## [2.0.0] — 2026-09-02 · "Çoklu Platform: macOS + Windows (Compose Multiplatform)"
 
 **Şema v5 (değişmedi) · Yedek formatı v5 (değişmedi, çapraz platform) · Android versionCode 8 · 116 test**
@@ -205,6 +242,43 @@ Biçim [Keep a Changelog](https://keepachangelog.com/) ruhundadır; sürümleme
 
 <a id="english"></a>
 # 🇬🇧 English
+
+## [2.1.0] — 2026-09-05 · "Brother's feedback: daily focus, topic tracker, an all-seeing coach"
+
+**Schema v6 (additive: `topic_status` +3 columns) · Backup format v6 (reads v1–v5) · Android versionCode 9 · 127 tests**
+
+### Added
+- **Timer:** RESET no longer logs anything — only completed countdowns and stopwatches
+  finished with BİTİR count. The list became "Today's sessions": only today's completed
+  sessions are shown (the "yarım"/incomplete label is gone; history stays in the database
+  for weekly stats).
+- **Dashboard:** the plan ring shows **today** ("Today's plan 2/6 tasks"); the weekly total
+  stays as a small caption ("Week: 15/21").
+- **Planner:** "This week's study time" kept, with a new **day-by-day study row** below it
+  (Mon→Sun, today highlighted).
+- **Topics:** per-topic **Needs review** flag (red; cleared by "Reviewed"), self-assessed
+  **Weak / OK / Good**, chips renamed "Studied / Solved questions / Reviewed"; filters
+  **All · Needs review · Not studied · Weak** (weak = self-assessment OR exam wrong marks);
+  header shows "Needs review: N topics".
+- **The AI coach now sees the whole app** (when stats sharing is on): exam dates and days
+  left, nets, **this week's program day by day** ([x]/[ ] tasks, target and solved counts,
+  TODAY marker), study minutes per day + per category + last 7 days, the topic tracker
+  (needs-review, weak/ok/good), exam-marked weak topics and note titles. Context cap 7,000
+  characters.
+- **"Let the coach search the web"** toggle (Settings → AI Coach): on Claude profiles the
+  Anthropic server-side web search tool is attached (max 5 searches per reply; the search
+  runs on the provider's side, the app still connects only to the AI endpoint). The toggle
+  has no effect on OpenAI-compatible profiles (noted in the UI).
+
+### Verification
+- 127/127 tests (11 new: day buckets, topic filters, coach context formatters, web-search
+  params, "reset never logs" contract). MIGRATION_5_6 applied to a real v5 database and
+  compared column-by-column with the generated 6.json; the other 12 tables byte-identical.
+- In-place upgrade v2.0.0 → v2.1.0 on the emulator (23 topic rows kept with the new
+  columns); needs-review flag + filter on device; stopwatch reset after 65 s wrote no
+  session; the desktop package opened the same v5 file and migrated it to 6.
+- Web search was not exercised end-to-end with a real Anthropic key (none at hand); the
+  tool attachment is verified by a unit test on the request body.
 
 ## [2.0.0] — 2026-09-02 · "Multi-platform: macOS + Windows (Compose Multiplatform)"
 

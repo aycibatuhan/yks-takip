@@ -42,7 +42,7 @@ compose.desktop {
             // jpackage only targets the host OS: .dmg is built on macOS, .msi on Windows (CI matrix).
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi)
             packageName = "YKS Takip"
-            packageVersion = "2.0.0"
+            packageVersion = "2.1.0"
             description = "YKS deneme/plan/sayaç takibi — çevrimdışı, hesapsız."
             vendor = "Batuhan Ayci"
             licenseFile.set(rootProject.file("LICENSE"))

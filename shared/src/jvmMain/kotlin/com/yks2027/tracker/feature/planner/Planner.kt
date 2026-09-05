@@ -2,6 +2,8 @@ package com.yks2027.tracker.feature.planner
 
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,6 +73,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -116,6 +119,21 @@ class PlannerViewModel constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList<CategoryActiveMs>())
+
+    /** v2.1 — study minutes per weekday (Mon..Sun) of the shown week. */
+    val dailyStudy = weekStart
+        .flatMapLatest { week ->
+            if (week == null) {
+                emptyFlow()
+            } else {
+                val from = LocalDate.ofEpochDay(week).atStartOfDay(ISTANBUL).toInstant().toEpochMilli()
+                focusDao.observeSessionSlicesBetween(from, from + 7L * 86_400_000L)
+                    .map { com.yks2027.tracker.core.model.DailyStudyBuckets.minutesByDay(it, week) }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), List(7) { 0 })
+
+    val todayIndex: Int get() = clock.today().dayOfWeek.value - 1
 
     init {
         viewModelScope.launch {
@@ -248,6 +266,7 @@ fun PlannerScreen(
     val weekStart by viewModel.currentWeekStart.collectAsStateWithLifecycle()
     val copyableWeek by viewModel.copyableWeek.collectAsStateWithLifecycle()
     val studyTime by viewModel.studyTime.collectAsStateWithLifecycle()
+    val dailyStudy by viewModel.dailyStudy.collectAsStateWithLifecycle()
     val pendingCapture by viewModel.pendingCapture.collectAsStateWithLifecycle()
     val snackbarMessage by viewModel.snackbar.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -271,7 +290,7 @@ fun PlannerScreen(
                 onOpenHistory = onOpenHistory,
             )
             StatsRow(tasks)
-            StudyTimeRow(studyTime)
+            StudyTimeRow(studyTime, dailyStudy, viewModel.todayIndex)
 
             if (copyableWeek != null) {
                 Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -401,8 +420,8 @@ fun SolvedCaptureDialog(
 
 /** v1.2 görsel paso — study time per category as one stacked bar (color = category). */
 @Composable
-private fun StudyTimeRow(studyTime: List<CategoryActiveMs>) {
-    if (studyTime.isEmpty()) return
+private fun StudyTimeRow(studyTime: List<CategoryActiveMs>, daily: List<Int>, todayIndex: Int) {
+    if (studyTime.isEmpty() && daily.all { it == 0 }) return
     val totalMin = studyTime.sumOf { it.totalMs } / 60_000
     val neutral = MaterialTheme.colorScheme.outline
     Column(Modifier.fillMaxWidth().padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -430,6 +449,7 @@ private fun StudyTimeRow(studyTime: List<CategoryActiveMs>) {
                 )
             },
         )
+        DailyStudyRow(daily, todayIndex)
     }
 }
 
@@ -639,4 +659,45 @@ private fun AddTaskDialog(
             TextButton(onClick = onDismiss) { Text("Vazgeç") }
         },
     )
+}
+
+/** v2.1 — day-by-day study minutes of the week (brother's feedback); today highlighted. */
+@Composable
+private fun DailyStudyRow(daily: List<Int>, todayIndex: Int) {
+    val max = (daily.maxOrNull() ?: 0).coerceAtLeast(1)
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        daily.forEachIndexed { i, min ->
+            val isToday = i == todayIndex
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    if (min > 0) "$min dk" else "—",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                    color = if (min > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                // Fixed 26dp slot, bar grows from the bottom — keeps the day labels on one line.
+                androidx.compose.foundation.layout.Box(
+                    Modifier.fillMaxWidth().padding(vertical = 2.dp).height(26.dp),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height((4 + 22 * min / max).dp)
+                            .background(
+                                if (min > 0) MaterialTheme.colorScheme.primary.copy(alpha = if (isToday) 1f else 0.55f)
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                androidx.compose.foundation.shape.RoundedCornerShape(3.dp),
+                            ),
+                    )
+                }
+                Text(
+                    com.yks2027.tracker.core.model.DailyStudyBuckets.dayLabels[i],
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                )
+            }
+        }
+    }
 }

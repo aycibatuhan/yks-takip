@@ -187,6 +187,11 @@ data class TopicStatusEntity(
     val practiced: Boolean = false,
     val reviewed: Boolean = false,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    // v2.1 (schema v6, additive): "needs review" flag, self-assessed confidence (0 = not set,
+    // 1 = zayıf, 2 = orta, 3 = iyi) and the last time "çalıştım" was ticked.
+    @ColumnInfo(name = "needs_review", defaultValue = "0") val needsReview: Boolean = false,
+    @ColumnInfo(name = "confidence", defaultValue = "0") val confidence: Int = 0,
+    @ColumnInfo(name = "last_studied_at") val lastStudiedAt: Long? = null,
 )
 
 /**

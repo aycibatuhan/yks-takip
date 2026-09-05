@@ -37,10 +37,13 @@ class AiClient constructor(
         if (profile.model.isBlank()) {
             throw AiException("Bu profilde model seçilmemiş — profil ayarlarından \"Modelleri Getir\" ile seç.")
         }
-        val system = buildSystemPrompt(settingsRepository.settings.first().aiShareStats)
-        val upstream = when (profilesRepository.protocolOf(profile)) {
+        val settings = settingsRepository.settings.first()
+        val protocol = profilesRepository.protocolOf(profile)
+        val webSearch = settings.aiWebSearch && protocol == AiProtocol.ANTHROPIC
+        val system = buildSystemPrompt(settings.aiShareStats, webSearch)
+        val upstream = when (protocol) {
             AiProtocol.ANTHROPIC ->
-                anthropicProvider.streamChat(apiKey, profile.baseUrl, profile.model, system, history)
+                anthropicProvider.streamChat(apiKey, profile.baseUrl, profile.model, system, history, webSearch = webSearch)
             AiProtocol.OPENAI_COMPAT -> {
                 if (profile.baseUrl.isBlank()) throw AiException("Bu profilde taban URL ayarlanmamış.")
                 openAiCompatProvider.streamChat(apiKey, profile.baseUrl, profile.model, system, history)
@@ -61,7 +64,7 @@ class AiClient constructor(
         }
     }
 
-    private suspend fun buildSystemPrompt(shareStats: Boolean): String = buildString {
+    private suspend fun buildSystemPrompt(shareStats: Boolean, webSearch: Boolean): String = buildString {
         val yearLabel = settingsRepository.settings.first().yksYearLabel
         appendLine(
             "Sen $yearLabel'ye Sayısal alanından hazırlanan bir lise öğrencisinin kişisel " +
@@ -71,6 +74,19 @@ class AiClient constructor(
                 "(sen bir öğretmensin, cevap anahtarı değilsin). Çalışma planı önerirken " +
                 "öğrencinin gerçek verilerine dayan; veri yoksa varsayım yapma, sor.",
         )
+        if (shareStats) {
+            appendLine(
+                "Aşağıdaki veriler uygulamadan otomatik gelir (haftalık plan gün gün, konu takibi, " +
+                    "odak süreleri, denemeler, notlar). Öğrenci \"programımı gördün mü?\" diye sorarsa " +
+                    "bu verilere dayanarak somut yorum yap; uydurma, eksikse söyle.",
+            )
+        }
+        if (webSearch) {
+            appendLine(
+                "Web araması açık: güncel bilgi gerektiğinde (ÖSYM takvimi, duyurular, kaynak " +
+                    "önerileri) ara ve kaynağını belirt. Gereksiz yere arama yapma.",
+            )
+        }
         if (shareStats) {
             appendLine()
             append(statsContextBuilder.build())

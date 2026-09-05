@@ -329,6 +329,10 @@ interface FocusDao {
     @Query("SELECT started_at AS startedAt, active_ms AS activeMs FROM focus_sessions WHERE started_at >= :fromMs AND started_at < :toMs")
     suspend fun sessionSlicesBetween(fromMs: Long, toMs: Long): List<SessionSlice>
 
+    /** v2.1 — live variant for the planner's day-by-day study row. */
+    @Query("SELECT started_at AS startedAt, active_ms AS activeMs FROM focus_sessions WHERE started_at >= :fromMs AND started_at < :toMs")
+    fun observeSessionSlicesBetween(fromMs: Long, toMs: Long): Flow<List<SessionSlice>>
+
     /** Streak source: days with a logged focus session. */
     @Query("SELECT DISTINCT started_at FROM focus_sessions")
     fun observeStartTimes(): Flow<List<Long>>

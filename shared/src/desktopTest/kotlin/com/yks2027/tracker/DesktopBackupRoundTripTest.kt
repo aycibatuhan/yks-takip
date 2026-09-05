@@ -53,7 +53,7 @@ class DesktopBackupRoundTripTest {
         val payload = runBlocking { koin.get<BackupManager>().exportJson() }
         val doc = json.parseToJsonElement(payload).jsonObject
         assertEquals(BackupManager.FORMAT_FOR_TESTS, doc["format"]!!.jsonPrimitive.content)
-        assertEquals(5, doc["schema_version"]!!.jsonPrimitive.content.toInt())
+        assertEquals(6, doc["schema_version"]!!.jsonPrimitive.content.toInt())
         assertFalse(payload.contains("api_key", ignoreCase = true))
         assertFalse(payload.contains("sk-", ignoreCase = false))
         System.getenv("YKS_DESKTOP_EXPORT")?.let { File(it).writeText(payload); println("[backup] desktop export → $it (${payload.length} chars)") }

@@ -78,6 +78,7 @@ class SettingsViewModel(
             lastBackupAt = null,
             activeAiProfileId = null,
             aiShareStats = true,
+            aiWebSearch = false,
             autoBreakMin = 0,
         ),
     )

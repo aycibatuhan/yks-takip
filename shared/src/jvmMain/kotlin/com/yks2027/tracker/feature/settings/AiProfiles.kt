@@ -96,6 +96,8 @@ class AiProfilesViewModel constructor(
 
     val shareStats = settingsRepository.settings.map { it.aiShareStats }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+    val webSearch = settingsRepository.settings.map { it.aiWebSearch }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     private val _editor = MutableStateFlow<ProfileEditorState?>(null)
     val editor = _editor.asStateFlow()
@@ -180,6 +182,7 @@ class AiProfilesViewModel constructor(
 
     fun setActive(id: Long) = viewModelScope.launch { profilesRepository.setActive(id) }
     fun setShareStats(v: Boolean) = viewModelScope.launch { settingsRepository.setAiShareStats(v) }
+    fun setWebSearch(v: Boolean) = viewModelScope.launch { settingsRepository.setAiWebSearch(v) }
     fun consumeSnackbar() { _snackbar.value = null }
 
     /** Bağlantıyı Sına — models-list probe with the editor's CURRENT (unsaved) values. */
@@ -225,6 +228,7 @@ fun AiProfilesCard(viewModel: AiProfilesViewModel = koinViewModel(), onSnackbar:
     val activeId by viewModel.activeId.collectAsStateWithLifecycle()
     val keysPresent by viewModel.keysPresent.collectAsStateWithLifecycle()
     val shareStats by viewModel.shareStats.collectAsStateWithLifecycle()
+    val webSearch by viewModel.webSearch.collectAsStateWithLifecycle()
     val editor by viewModel.editor.collectAsStateWithLifecycle()
     val snackbar by viewModel.snackbar.collectAsStateWithLifecycle()
 
@@ -298,12 +302,25 @@ fun AiProfilesCard(viewModel: AiProfilesViewModel = koinViewModel(), onSnackbar:
                 Column(Modifier.weight(1f)) {
                     Text("İstatistikleri koçla paylaş", style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "Açıkken son netler, plan durumu, çalışma süresi ve zayıf konular mesajlara eklenir.",
+                        "Açıkken sınav tarihleri, netler, bu haftanın programı gün gün, çalışma süreleri, konu takibi ve not başlıkları mesajlara eklenir.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 androidx.compose.material3.Switch(checked = shareStats, onCheckedChange = viewModel::setShareStats)
+            }
+            // v2.1 — brother's feedback: the coach may search the web (provider-side tool).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Koç web'de arayabilsin", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Yalnız Claude (Anthropic) profillerinde. Arama sağlayıcının kendi tarafında yapılır — " +
+                            "uygulama yine sadece AI ucuna bağlanır; her arama ücretlendirilebilir (yanıt başına en çok 5).",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                androidx.compose.material3.Switch(checked = webSearch, onCheckedChange = viewModel::setWebSearch)
             }
         }
     }

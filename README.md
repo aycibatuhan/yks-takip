@@ -10,7 +10,7 @@
 ![KMP](https://img.shields.io/badge/Kotlin%20Multiplatform-Compose%201.12-7F52FF?logo=kotlin&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4)
-![Version](https://img.shields.io/badge/version-2.0.0-orange)
+![Version](https://img.shields.io/badge/version-2.1.0-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **[🇹🇷 Türkçe](#turkce) · [🇬🇧 English](#english)**
@@ -160,14 +160,16 @@ katmanı arayüzlerin arkasında olduğu için yolu kapatmaz.
   garantisi `USE_EXACT_ALARM` ile kurulan kesin alarmdır (uygulama öldürülse, cihaz
   Doze'a girse bile çalar); yeniden başlatmada `BOOT_COMPLETED` alıcısı alarmı yeniden
   kurar veya "süre cihaz kapalıyken doldu" diye kapatır.
-- ≥60 sn süren her oturum `focus_sessions` tablosuna yazılır (kategori ve görev bağı
-  isteğe bağlı); molalar önerilir ama istatistiklere **yazılmaz**.
+- Biten geri sayımlar ve BİTİR ile kaydedilen kronometreler `focus_sessions` tablosuna
+  yazılır; **SIFIRLA hiçbir şey kaydetmez** (v2.1). Ekranda yalnız bugünün oturumları
+  listelenir; molalar istatistiklere **yazılmaz**.
 
 ### 📚 Konu takibi
 - ~140 konuluk gömülü katalog (2027 için mevcut müfredat geçerli; Maarif modeli 2028'de
   başlıyor — katalog buna göre seçildi).
-- Konu başına üç durum: çalıştım / soru çözdüm / tekrar ettim; ders başına ilerleme
-  halkaları; deneme işaretlerinden gelen yanlış rozetleri.
+- Konu başına: çalıştım / soru çözdüm / tekrar ettim + **Tekrar gerekli** bayrağı ve
+  öz-değerlendirme (Zayıf / Orta / İyi); filtreler Tümü · Tekrar gerekenler · Çalışılmamış ·
+  Zayıf; ders başına ilerleme halkaları; deneme işaretlerinden gelen yanlış rozetleri.
 
 ### 🤖 AI Koç (isteğe bağlı, BYOK)
 - **Profiller:** her profil ad + protokol + taban URL + model + kendi şifreli anahtarını
@@ -180,8 +182,12 @@ katmanı arayüzlerin arkasında olduğu için yolu kapatmaz.
 - **Bağlantıyı Sına** gerçek `models` ucuna gider ve hatayı üç katmanda gösterir: dostça
   Türkçe açıklama + HTTP kodu + sunucunun kendi hata gövdesi. **Modelleri Getir** canlı
   model listesini çekip arama/seçim sunar.
-- Yanıtlar **akışlıdır** (streaming) ve durdurulabilir. Koç, izne bağlı olarak yerel
-  istatistik özetini bağlam alır (`Ayarlar → istatistik paylaşımı` ile kapatılır).
+- Yanıtlar **akışlıdır** (streaming) ve durdurulabilir. Koç, izne bağlı olarak
+  **uygulamanın tamamını** bağlam alır: sınav tarihleri, netler, bu haftanın programı gün
+  gün, günlük odak dakikaları, konu takibi (tekrar gerekenler / öz-değerlendirme), not
+  başlıkları (`Ayarlar → istatistik paylaşımı` ile kapatılır). **Web araması** (v2.1):
+  Claude profillerinde Anthropic'in sunucu taraflı arama aracı — uygulama yine yalnızca AI
+  ucuna bağlanır; her arama sağlayıcıca ücretlendirilebilir.
 - Yanıtlar **"Nota kaydet"** ile Notlar'a düşer. LLM'ler zor matematikte hata yapabilir
   — bu bir öğretmen yardımcısıdır, cevap anahtarı değil.
 - **Oturumlar (v1.3):** geniş ekranda kalıcı sol panel, dar ekranda alt sayfa. Tüm
@@ -400,25 +406,25 @@ değiştirebilir — güncel liste her zaman **Modelleri Getir**'dedir.
 <a id="tr-veri"></a>
 ## Veri modeli ve yedekleme
 
-Room şeması **v5** — 13 tablo:
+Room şeması **v6** — 13 tablo:
 
 | Tablo | İçerik |
 |---|---|
 | `exams`, `exam_sections` | Deneme başlığı + ders başına ham D/Y (boş ve net türetilir) |
 | `exam_topic_marks`, `exam_topic_notes` | Deneme başına konu işaretleri (Y/B + hata türü) ve ders notları |
-| `topic_status` | Konu başına çalıştım/soru/tekrar durumu |
+| `topic_status` | Konu başına çalıştım/soru/tekrar durumu + v2.1: tekrar gerekli, öz-değerlendirme, son çalışma zamanı |
 | `plan_weeks`, `plan_tasks` | Hafta anahtarlı plan; görevlerde hedef + gerçek çözülen |
 | `focus_sessions` | Sayaç/kronometre oturumları (aktif ms, kategori, görev bağı) |
 | `chat_threads`, `chat_messages`, `chat_folders` | AI Koç geçmişi; sabitleme + klasörler (FK `SET NULL` — klasör silmek sohbeti silmez) |
 | `ai_profiles` | AI profil meta verisi (**anahtarlar burada değil** — şifreli DataStore'da) |
 | `notes` | Markdown notlar |
 
-- `exportSchema` açıktır; `app/schemas/` altındaki 1–5 şema dosyaları depoya dahildir.
-- Migration zinciri `MIGRATION_1_2 … MIGRATION_4_5` elle yazılmıştır ve hem üretilen
+- `exportSchema` açıktır; `app/schemas/` altındaki 1–6 şema dosyaları depoya dahildir.
+- Migration zinciri `MIGRATION_1_2 … MIGRATION_5_6` elle yazılmıştır ve hem üretilen
   şemayla bit-bit hem de emülatörde gerçek veriyle yerinde yükseltme olarak doğrulanır.
   (4→5, SQLite `ALTER TABLE` ile FK ekleyemediği için `chat_threads`'i standart
   yeniden-kurma reçetesiyle taşır — ayrıntı: [ARCHITECTURE](docs/ARCHITECTURE.md).)
-- **JSON yedek formatı v5**, v1–v4 dosyalarını da okur. Geri yükleme "değiştir"
+- **JSON yedek formatı v6**, v1–v5 dosyalarını da okur. Geri yükleme "değiştir"
   anlamındadır ama önce otomatik bir güvenlik anlık görüntüsü alınır. API anahtarları
   yedeklere **asla** girmez.
 
@@ -450,7 +456,7 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
   yedek döndürme, masaüstü gizli depo gidiş-dönüşü, işletim sistemi başına veri dizini,
   çevrimdışı çizilen masaüstü ekran turu (geniş/dar, açık/koyu), Enter ile kaydetme,
   gerçek uçlara karşı "Bağlantıyı Sına", çapraz platform yedek/CSV içe aktarma —
-  toplam **116/116**.
+  toplam **127/127** (v2.1: gün kovaları, konu filtreleri, koç bağlamı, web arama parametresi).
 - Şema v5 KMP Room derleyicisince yeniden üretilip commit'li dosyayla **bit-bit**
   karşılaştırıldı; gerçek v1.3 `yks.db` masaüstünde BundledSQLiteDriver ile değişmeden açıldı.
 - Her sürümde: migration üretilen şemayla **bit-bit** karşılaştırılır **ve** emülatörde
@@ -468,7 +474,7 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
 | [docs/PRD-v2.md](docs/PRD-v2.md) | Ürün gereksinimleri: doğrulanmış YKS alan bilgisi (kaynaklarıyla), modül spesifikasyonları, kabul kriterleri, v1'den değişiklikler. §17 sürüm notlarıdır. |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Mimari: veri modeli, migration reçeteleri, yedek formatı, sayaç durum makinesi, AI katmanı, içe aktarma hattı, **v2.0 platform sınırı**. |
 | [.github/workflows/release.yml](.github/workflows/release.yml) | Etiket push'unda testler → APK (gizli anahtar varsa imzalı) + macOS `.dmg` + Windows `.msi` → GitHub Release. |
-| [CHANGELOG.md](CHANGELOG.md) | Sürüm geçmişi (v1.0.0 → v2.0.0). |
+| [CHANGELOG.md](CHANGELOG.md) | Sürüm geçmişi (v1.0.0 → v2.1.0). |
 | [docs/GELISTIRME-GUNLUGU.md](docs/GELISTIRME-GUNLUGU.md) | Tarihsel geliştirme/doğrulama günlüğü (sürüm başına test kayıtları). |
 
 <a id="tr-kapsam"></a>
@@ -652,15 +658,17 @@ networking already sit behind interfaces, so nothing blocks it.
   is guaranteed by an exact alarm (`USE_EXACT_ALARM`) that fires even if the process
   is killed or the device is dozing; a `BOOT_COMPLETED` receiver reschedules or
   finalizes ("timer ended while the device was off") after a reboot.
-- Every session ≥60 s is logged to `focus_sessions` (optional category and task link);
-  breaks are suggested but **never** recorded as study time.
+- Completed countdowns and stopwatches finished with BİTİR are logged to
+  `focus_sessions`; **RESET logs nothing** (v2.1). Only today's sessions are listed on
+  screen; breaks are never recorded as study time.
 
 ### 📚 Topic tracking
 - An embedded catalog of ~140 curriculum topics (the current curriculum remains valid
   for 2027; the new Maarif question model starts in 2028 — the catalog was chosen
   accordingly).
-- Per-topic studied / practiced / reviewed states, per-subject progress rings, and
-  wrong-count badges fed by exam topic marks.
+- Per topic: studied / solved questions / reviewed + a **Needs review** flag and a
+  self-assessment (Weak / OK / Good); filters All · Needs review · Not studied · Weak;
+  per-subject progress rings and wrong-count badges fed by exam topic marks.
 
 ### 🤖 AI coach (optional, BYOK)
 - **Profiles:** each profile carries a name + protocol + base URL + model + its own
@@ -674,8 +682,11 @@ networking already sit behind interfaces, so nothing blocks it.
 - **Test Connection** hits the provider's real `models` endpoint and reports failures
   in three layers: a friendly Turkish explanation + the HTTP status + the server's own
   error body. **Fetch Models** pulls the live model list with search and pick.
-- Responses **stream** and can be stopped. With permission, the coach receives a
-  compact local-stats summary as context (toggle in Settings).
+- Responses **stream** and can be stopped. With permission, the coach receives **the
+  whole app** as context: exam dates, nets, this week's program day by day, daily study
+  minutes, the topic tracker (needs-review / self-assessment), note titles (toggle in
+  Settings). **Web search** (v2.1): on Claude profiles Anthropic's server-side search tool
+  is attached — the app still only talks to the AI endpoint; searches may be billed.
 - Any answer can be saved to Notes with one tap. LLMs can err on hard math — this is
   a study companion, not an answer key.
 - **Sessions (v1.3):** a permanent left pane on wide screens, a bottom sheet on
@@ -880,26 +891,26 @@ authoritative list is always **Fetch Models**.
 <a id="en-data"></a>
 ## Data model & backups
 
-Room schema **v5** — 13 tables:
+Room schema **v6** — 13 tables:
 
 | Table | Contents |
 |---|---|
 | `exams`, `exam_sections` | Exam header + raw correct/wrong per subject (blank & net derived) |
 | `exam_topic_marks`, `exam_topic_notes` | Per-exam topic marks (wrong/blank + error type) and subject notes |
-| `topic_status` | Per-topic studied/practiced/reviewed state |
+| `topic_status` | Per-topic studied/practiced/reviewed state + v2.1: needs-review, self-assessment, last studied |
 | `plan_weeks`, `plan_tasks` | Week-keyed plan; tasks carry target + actually-solved counts |
 | `focus_sessions` | Timer/stopwatch sessions (active ms, category, task link) |
 | `chat_threads`, `chat_messages`, `chat_folders` | AI-coach history; pinning + folders (FK `SET NULL` — deleting a folder never deletes threads) |
 | `ai_profiles` | AI profile metadata (**keys live elsewhere** — in encrypted DataStore) |
 | `notes` | Markdown notes |
 
-- `exportSchema` is on; schema files 1–5 under `app/schemas/` are committed.
-- The migration chain `MIGRATION_1_2 … MIGRATION_4_5` is hand-written and verified
+- `exportSchema` is on; schema files 1–6 under `shared/schemas/` are committed.
+- The migration chain `MIGRATION_1_2 … MIGRATION_5_6` is hand-written and verified
   both byte-for-byte against the generated schema and as live in-place upgrades over
   real data on an emulator. (4→5 rebuilds `chat_threads` via the standard SQLite
   table-recreation recipe, because `ALTER TABLE` cannot add a foreign key — details in
   [ARCHITECTURE](docs/ARCHITECTURE.md).)
-- **JSON backup format v5** still reads v1–v4 files. Restore means "replace", but an
+- **JSON backup format v6** still reads v1–v5 files. Restore means "replace", but an
   automatic safety snapshot is taken first. API keys are **never** included.
 
 <a id="en-csv"></a>
@@ -931,7 +942,7 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
   v2.0 refactor) + **41 new tests**: the timer-completion scheduler contract (shared
   fake), backup rotation, desktop secret-store round-trip, per-OS data dir, the offscreen
   desktop screen tour (expanded/compact, light/dark), Enter-to-save, "Test Connection"
-  against real endpoints, cross-platform backup/CSV import — **116/116**.
+  against real endpoints, cross-platform backup/CSV import — **127/127** (v2.1: day buckets, topic filters, coach context, web-search params).
 - Schema v5 regenerated by the KMP Room compiler and compared **byte-for-byte** with the
   committed file; a real v1.3 `yks.db` opened unchanged on desktop under BundledSQLiteDriver.
 - Every release: migrations are compared **byte-for-byte** against the generated
@@ -949,7 +960,7 @@ tarih;tur;ad;yayinevi;ders;soru;dogru;yanlis;bos;net
 | [docs/PRD-v2.md](docs/PRD-v2.md) | Product requirements (English): verified YKS domain facts with sources, module specs, acceptance criteria, changes from v1. §17 is the release log (Turkish). |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture: data model, migration recipes, backup format, timer state machine, AI layer, import pipeline, **v2.0 platform boundary**. |
 | [.github/workflows/release.yml](.github/workflows/release.yml) | On a tag push: tests → APK (signed only when secrets exist) + macOS `.dmg` + Windows `.msi` → GitHub Release. |
-| [CHANGELOG.md](CHANGELOG.md) | Release history (v1.0.0 → v2.0.0). |
+| [CHANGELOG.md](CHANGELOG.md) | Release history (v1.0.0 → v2.1.0). |
 | [docs/GELISTIRME-GUNLUGU.md](docs/GELISTIRME-GUNLUGU.md) | Historical development/verification log (Turkish). |
 
 <a id="en-scope"></a>

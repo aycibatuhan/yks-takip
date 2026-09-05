@@ -45,6 +45,7 @@ import com.yks2027.tracker.core.datastore.TimerPhase
 import com.yks2027.tracker.core.datastore.TimerStateRepository
 import com.yks2027.tracker.core.model.PlannerCategory
 import com.yks2027.tracker.core.time.ISTANBUL
+import com.yks2027.tracker.core.time.dateOf
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -65,6 +66,8 @@ data class TimerUiState(
     val elapsedMs: Long = 0,
     val plannedMin: Int = 25,
     val recent: List<FocusSessionEntity> = emptyList(),
+    /** v2.1 — only today's completed sessions are listed on the screen (history stays for stats). */
+    val todaySessions: List<FocusSessionEntity> = emptyList(),
     val isBreak: Boolean = false,
     /** Auto-break setting (minutes; 0 = off) and whether to suggest one right now. */
     val autoBreakMin: Int = 0,
@@ -94,7 +97,7 @@ class TimerViewModel constructor(
     val ui = combine(
         timerStateRepository.state,
         tick,
-        focusDao.observeRecent(10),
+        focusDao.observeRecent(60),
         settingsRepository.settings,
         selectedMode,
     ) { s, now, recent, settings, idleMode ->
@@ -106,6 +109,7 @@ class TimerViewModel constructor(
             elapsedMs = TimerLogic.elapsedAt(s, now),
             plannedMin = s.plannedMin,
             recent = recent,
+            todaySessions = recent.filter { it.completed && dateOf(Instant.ofEpochMilli(it.startedAt)) == dateOf(Instant.ofEpochMilli(now)) },
             isBreak = s.isBreak,
             autoBreakMin = settings.autoBreakMin,
             // Suggest a break right after a completed study session (PRD §12 M3).
@@ -357,7 +361,7 @@ fun TimerScreen(viewModel: TimerViewModel = koinViewModel()) {
             }
         }
 
-        RecentSessions(ui.recent)
+        RecentSessions(ui.todaySessions)
     }
 }
 
@@ -387,10 +391,10 @@ private fun CategoryPicker(selected: PlannerCategory?, onSelect: (PlannerCategor
 private fun RecentSessions(sessions: List<FocusSessionEntity>) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Son oturumlar", style = MaterialTheme.typography.titleMedium)
+            Text("Bugünkü oturumlar", style = MaterialTheme.typography.titleMedium)
             if (sessions.isEmpty()) {
                 Text(
-                    "Henüz kayıtlı oturum yok (≥1 dk süren oturumlar kaydedilir)",
+                    "Bugün tamamlanmış oturum yok — biten geri sayımlar ve BİTİR ile kaydedilen kronometreler burada görünür; SIFIRLA hiçbir şey kaydetmez.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -414,15 +418,7 @@ private fun RecentSessions(sessions: List<FocusSessionEntity>) {
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Text(
-                        if (s.completed) "  ✓" else "  yarım",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (s.completed) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
+                    Text("  ✓", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }

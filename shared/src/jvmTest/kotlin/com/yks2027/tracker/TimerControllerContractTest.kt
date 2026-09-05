@@ -108,6 +108,19 @@ class TimerControllerContractTest {
     }
 
     @Test
+    fun resetNeverLogsASessionEvenAfterLongWork() = runBlocking {
+        // v2.1 (brother's feedback): SIFIRLA discards — only completed runs count.
+        val h = Harness()
+        h.controller.start(50, null)
+        h.scheduler.calls.clear()
+        h.clock.nowMs += 45 * 60_000L
+        h.controller.reset()
+        assertEquals(listOf("cancel", "hide"), h.scheduler.calls)
+        assertTrue(h.sessions.isEmpty())
+        assertEquals(TimerPhase.IDLE, h.repo.snapshot().phase)
+    }
+
+    @Test
     fun resetBelowOneMinuteLogsNothingButStillTearsDown() = runBlocking {
         val h = Harness()
         h.controller.start(5, null)

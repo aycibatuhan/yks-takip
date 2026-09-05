@@ -70,6 +70,9 @@ data class DashboardUiState(
     val todayTasks: List<PlanTaskEntity> = emptyList(),
     val weekDone: Int = 0,
     val weekTotal: Int = 0,
+    /** v2.1 — the ring shows TODAY (brother's feedback); the week stays as a caption. */
+    val todayDone: Int = 0,
+    val todayTotal: Int = 0,
     /** Days since the last JSON backup; null = never backed up. */
     val daysSinceBackup: Long? = null,
     val autoBackupConfigured: Boolean = false,
@@ -117,6 +120,8 @@ class DashboardViewModel constructor(
             todayTasks = weekTasks.filter { it.dayOfWeek == todayIso },
             weekDone = weekTasks.count { it.isDone },
             weekTotal = weekTasks.size,
+            todayDone = weekTasks.count { it.dayOfWeek == todayIso && it.isDone },
+            todayTotal = weekTasks.count { it.dayOfWeek == todayIso },
             daysSinceBackup = settings.lastBackupAt?.let { (nowMs - it) / 86_400_000L },
             autoBackupConfigured = settings.backupDirUri != null,
         )
@@ -329,26 +334,31 @@ private fun KpiRow(ui: DashboardUiState) {
         Card(Modifier.weight(1f)) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 com.yks2027.tracker.core.ui.charts.ProgressRing(
-                    progress = if (ui.weekTotal == 0) 0f else ui.weekDone.toFloat() / ui.weekTotal,
+                    progress = if (ui.todayTotal == 0) 0f else ui.todayDone.toFloat() / ui.todayTotal,
                     modifier = Modifier.size(56.dp),
                     stroke = 6.dp,
                 ) {
                     Text(
-                        if (ui.weekTotal == 0) "—" else "%${ui.weekDone * 100 / ui.weekTotal}",
+                        if (ui.todayTotal == 0) "—" else "%${ui.todayDone * 100 / ui.todayTotal}",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                     )
                 }
                 Column(Modifier.padding(start = 12.dp)) {
                     Text(
-                        "Haftalık plan",
+                        "Bugünün planı",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        if (ui.weekTotal == 0) "Görev yok" else "${ui.weekDone}/${ui.weekTotal} görev",
+                        if (ui.todayTotal == 0) "Bugün görev yok" else "${ui.todayDone}/${ui.todayTotal} görev",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        if (ui.weekTotal == 0) "Hafta: görev yok" else "Hafta: ${ui.weekDone}/${ui.weekTotal}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

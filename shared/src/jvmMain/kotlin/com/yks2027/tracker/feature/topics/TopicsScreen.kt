@@ -54,6 +54,8 @@ data class TopicRowUi(
     val studied: Boolean,
     val practiced: Boolean,
     val reviewed: Boolean,
+    val needsReview: Boolean,
+    val confidence: Int,
     val weakWrongs: Int,
 )
 
@@ -62,6 +64,8 @@ data class TopicsUiState(
     val rows: List<TopicRowUi> = emptyList(),
     val studiedCount: Int = 0,
     val total: Int = 0,
+    val needsReviewCount: Int = 0,
+    val filter: TopicFilter = TopicFilter.ALL,
 )
 
 class TopicsViewModel constructor(
@@ -72,6 +76,7 @@ class TopicsViewModel constructor(
 
     private val selectedSubject = MutableStateFlow(Subject.TYT_MATEMATIK)
     val subject = selectedSubject.asStateFlow()
+    private val selectedFilter = MutableStateFlow(TopicFilter.ALL)
 
     private val statuses = topicDao.observeStatuses()
         .map { list -> list.associateBy { it.topicId } }
@@ -79,7 +84,7 @@ class TopicsViewModel constructor(
     private val weakWrongs = examDao.observeWeakTopicRows()
         .map { rows -> rows.groupBy { it.topicId }.mapValues { (_, g) -> g.sumOf { it.wrongSum } } }
 
-    val ui = combine(selectedSubject, statuses, weakWrongs) { subject, statusMap, weakMap ->
+    val ui = combine(selectedSubject, statuses, weakWrongs, selectedFilter) { subject, statusMap, weakMap, filter ->
         val topics = TopicCatalog.topicsFor(subject)
         val rows = topics.map { topic ->
             val status = statusMap[topic.id]
@@ -88,14 +93,18 @@ class TopicsViewModel constructor(
                 studied = status?.studied == true,
                 practiced = status?.practiced == true,
                 reviewed = status?.reviewed == true,
+                needsReview = status?.needsReview == true,
+                confidence = status?.confidence ?: 0,
                 weakWrongs = weakMap[topic.id] ?: 0,
             )
         }
         TopicsUiState(
             subject = subject,
-            rows = rows,
+            rows = TopicFilters.apply(rows, filter),
             studiedCount = rows.count { it.studied },
             total = rows.size,
+            needsReviewCount = rows.count { it.needsReview },
+            filter = filter,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TopicsUiState())
 
@@ -103,21 +112,60 @@ class TopicsViewModel constructor(
         selectedSubject.value = subject
     }
 
+    fun setFilter(filter: TopicFilter) {
+        selectedFilter.value = filter
+    }
+
     fun toggle(row: TopicRowUi, field: StatusField) {
+        val now = clock.now().toEpochMilli()
+        val studied = if (field == StatusField.STUDIED) !row.studied else row.studied
+        val reviewed = if (field == StatusField.REVIEWED) !row.reviewed else row.reviewed
+        // Ticking "tekrar ettim" clears the "tekrar gerekli" flag; raising the flag un-ticks it.
+        val needsReview = when (field) {
+            StatusField.NEEDS_REVIEW -> !row.needsReview
+            StatusField.REVIEWED -> if (reviewed) false else row.needsReview
+            else -> row.needsReview
+        }
+        save(
+            row,
+            studied = studied,
+            practiced = if (field == StatusField.PRACTICED) !row.practiced else row.practiced,
+            reviewed = if (field == StatusField.NEEDS_REVIEW && needsReview) false else reviewed,
+            needsReview = needsReview,
+            confidence = row.confidence,
+            lastStudiedAt = if (field == StatusField.STUDIED && studied) now else null,
+            now = now,
+        )
+    }
+
+    /** 0 = not set, 1 = zayıf, 2 = orta, 3 = iyi; tapping the current level clears it. */
+    fun setConfidence(row: TopicRowUi, level: Int) {
+        val now = clock.now().toEpochMilli()
+        save(row, row.studied, row.practiced, row.reviewed, row.needsReview, if (row.confidence == level) 0 else level, null, now)
+    }
+
+    private fun save(
+        row: TopicRowUi, studied: Boolean, practiced: Boolean, reviewed: Boolean,
+        needsReview: Boolean, confidence: Int, lastStudiedAt: Long?, now: Long,
+    ) {
         viewModelScope.launch {
+            val previous = topicDao.statusesOnce().firstOrNull { it.topicId == row.topic.id }
             topicDao.upsertStatus(
                 TopicStatusEntity(
                     topicId = row.topic.id,
-                    studied = if (field == StatusField.STUDIED) !row.studied else row.studied,
-                    practiced = if (field == StatusField.PRACTICED) !row.practiced else row.practiced,
-                    reviewed = if (field == StatusField.REVIEWED) !row.reviewed else row.reviewed,
-                    updatedAt = clock.now().toEpochMilli(),
+                    studied = studied,
+                    practiced = practiced,
+                    reviewed = reviewed,
+                    updatedAt = now,
+                    needsReview = needsReview,
+                    confidence = confidence,
+                    lastStudiedAt = lastStudiedAt ?: previous?.lastStudiedAt,
                 ),
             )
         }
     }
 
-    enum class StatusField { STUDIED, PRACTICED, REVIEWED }
+    enum class StatusField { STUDIED, PRACTICED, REVIEWED, NEEDS_REVIEW }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -158,12 +206,39 @@ fun TopicsScreen(viewModel: TopicsViewModel = koinViewModel()) {
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
+                        if (ui.needsReviewCount > 0) {
+                            Text(
+                                "Tekrar gereken: ${ui.needsReviewCount} konu",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                         LinearProgressIndicator(
                             progress = { if (ui.total == 0) 0f else ui.studiedCount.toFloat() / ui.total },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
+            }
+
+            // v2.1 — filters (brother's feedback: "tekrar edilmesi gereken" as a first-class view).
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 4.dp)) {
+                items(TopicFilter.entries) { f ->
+                    FilterChip(
+                        selected = ui.filter == f,
+                        onClick = { viewModel.setFilter(f) },
+                        label = { Text(f.label) },
+                    )
+                }
+            }
+            if (ui.rows.isEmpty()) {
+                Text(
+                    "Bu filtrede konu yok.",
+                    Modifier.padding(vertical = 12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             LazyColumn(
@@ -187,7 +262,7 @@ fun TopicsScreen(viewModel: TopicsViewModel = koinViewModel()) {
                         }
                     }
                     item(key = row.topic.id) {
-                        TopicRow(row, onToggle = { field -> viewModel.toggle(row, field) })
+                        TopicRow(row, onToggle = { field -> viewModel.toggle(row, field) }, onConfidence = { level -> viewModel.setConfidence(row, level) })
                     }
                 }
             }
@@ -196,39 +271,67 @@ fun TopicsScreen(viewModel: TopicsViewModel = koinViewModel()) {
 }
 
 @Composable
-private fun TopicRow(row: TopicRowUi, onToggle: (TopicsViewModel.StatusField) -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(row.topic.label, style = MaterialTheme.typography.bodyMedium)
-                if (row.weakWrongs > 0) {
-                    Text(
-                        "${row.weakWrongs} yanlış işareti",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.SemiBold,
+private fun TopicRow(
+    row: TopicRowUi,
+    onToggle: (TopicsViewModel.StatusField) -> Unit,
+    onConfidence: (Int) -> Unit,
+) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = if (row.needsReview) {
+            androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f))
+        } else {
+            androidx.compose.material3.CardDefaults.cardColors()
+        },
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(row.topic.label, style = MaterialTheme.typography.bodyMedium, fontWeight = if (row.needsReview) FontWeight.SemiBold else FontWeight.Normal)
+                    if (row.weakWrongs > 0) {
+                        Text(
+                            "${row.weakWrongs} yanlış işareti",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+                // Self-assessed confidence: tap again to clear.
+                listOf(1 to "Zayıf", 2 to "Orta", 3 to "İyi").forEach { (level, label) ->
+                    FilterChip(
+                        selected = row.confidence == level,
+                        onClick = { onConfidence(level) },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
                     )
                 }
             }
-            FilterChip(
-                selected = row.studied,
-                onClick = { onToggle(TopicsViewModel.StatusField.STUDIED) },
-                label = { Text("Çalıştım") },
-            )
-            FilterChip(
-                selected = row.practiced,
-                onClick = { onToggle(TopicsViewModel.StatusField.PRACTICED) },
-                label = { Text("Soru") },
-            )
-            FilterChip(
-                selected = row.reviewed,
-                onClick = { onToggle(TopicsViewModel.StatusField.REVIEWED) },
-                label = { Text("Tekrar") },
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(
+                    selected = row.studied,
+                    onClick = { onToggle(TopicsViewModel.StatusField.STUDIED) },
+                    label = { Text("Çalıştım") },
+                )
+                FilterChip(
+                    selected = row.practiced,
+                    onClick = { onToggle(TopicsViewModel.StatusField.PRACTICED) },
+                    label = { Text("Soru çözdüm") },
+                )
+                FilterChip(
+                    selected = row.reviewed,
+                    onClick = { onToggle(TopicsViewModel.StatusField.REVIEWED) },
+                    label = { Text("Tekrar ettim") },
+                )
+                FilterChip(
+                    selected = row.needsReview,
+                    onClick = { onToggle(TopicsViewModel.StatusField.NEEDS_REVIEW) },
+                    label = { Text("Tekrar gerekli") },
+                    colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.18f),
+                        selectedLabelColor = MaterialTheme.colorScheme.error,
+                    ),
+                )
+            }
         }
     }
 }

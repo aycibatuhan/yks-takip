@@ -69,8 +69,17 @@ class TimerController(
         }
     }
 
-    /** RESET — logs an abandoned session if ≥60s of active time accumulated. */
-    suspend fun reset() = endActiveSession(completed = false)
+    /**
+     * RESET — discards the run: NOTHING is logged (v2.1, brother's feedback: only completed
+     * countdowns and stopwatches finished with BİTİR count as study time).
+     */
+    suspend fun reset() {
+        val s = timerStateRepository.snapshot()
+        if (s.phase == TimerPhase.IDLE) return
+        timerStateRepository.clear()
+        scheduler.cancelCompletion()
+        scheduler.hideRunning()
+    }
 
     /** v1.2 — stopwatch BİTİR: same teardown, but the session logs as completed. */
     suspend fun finishStopwatch() {

@@ -57,6 +57,7 @@ val sharedDataModule = module {
                 YksDatabase.MIGRATION_2_3,
                 YksDatabase.MIGRATION_3_4,
                 YksDatabase.MIGRATION_4_5,
+                YksDatabase.MIGRATION_5_6,
             )
             .build()
     }
